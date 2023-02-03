@@ -1,9 +1,8 @@
-# plan6122
-Urban Analytics Course at University of Virginia
+# PLAN 6122: Urban Analytics
 
 <br> 
 
-This repo contains code and data used for Department of Urban and Environmental Planning course delivered during the spring of 2023. 
+This repo contains code and data used for Department of Urban and Environmental Planning course delivered during the spring of 2023 at the University of Virginia. 
 
 ## Description
 
