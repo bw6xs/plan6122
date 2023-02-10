@@ -1,0 +1,108 @@
+---
+title: "Getting Our Feet Wet With The forcats Package"
+date: "Last Updated `r Sys.Date()`"
+fontsize: 16pt
+output:
+  html_document:
+    theme: united
+    df_print: paged
+---
+ <br> 
+
+This is the third and final `r emo::ji("sleepy")` part of the hands-on practice for today. If it is any consolation, this one is pretty brief because the *forcats* `r emo::ji("cat")` `r emo::ji("cat")` `r emo::ji("cat")` `r emo::ji("cat")` is kind of a one-trick pony... (pause for laughter... and applause?)
+
+ * [Strings](https://r4ds.had.co.nz/strings.html)
+ * [Factors](https://r4ds.had.co.nz/factors.html)
+ * [Dates and Times](https://r4ds.had.co.nz/dates-and-times.html)
+
+At any rate, you read about the *forcats* package today so let's practice a little to begin getting a feel for some of the more commonly used functions therein. We are going to load the dataset used in the *forcats* reading for today, which is just an excerpt from the [General Social Survey](https://gss.norc.org/About-The-GSS). Because these data are stored as a tibble object, we can see that many of them are factors^[Categorical data that can take on only one of a finite set of values, which are called levels.]. Let's use the `fct_count` function to see how many of the 21,438 records fall into various categories 
+
+<br>
+
+```{r label="Load R Packages", include= FALSE}
+
+options(repos=c(CRAN="https://mirrors.nics.utk.edu/cran/")) 
+
+library(tidyverse)
+library(lubridate)
+library(emo)
+library(janitor)
+library(jsonlite)
+
+```
+
+
+
+```{r label="Summary Of Respondents By Religious Affiliation"}
+
+data(gss_cat)
+
+fct_count(gss_cat$relig, sort = TRUE, prop = TRUE)
+
+```
+
+<br> 
+
+As you probably deduced, the **sort argument** returns the results in descending order and the **prop argument** gives us the proportion of the total in each category. We haven't introduced the *ggplot2* package yet (next week `r emo::ji("grinning")`), but we can use the barplot code from prior examples to visualize these data. 
+
+```{r label="Barchart Of Religious Affiliation"}
+
+ggplot(data = gss_cat) + 
+  geom_bar(stat = "count", aes(x = as_factor(relig)), fill = "orange") + 
+  labs(x="", y = "Number of Respondents") + 
+  theme(axis.text.x = element_text(size = 8, angle = 90))
+
+```
+
+There are an awful lot of categories here with not many respondents. Let's combine some of the categories and recreate the barplot... `r emo::ji("silly")`
+
+```{r label="Better Barchart Of Religious Affiliation"}
+
+gss_cat <- gss_cat %>%
+  mutate(small.relig = fct_recode(relig,
+                                  "Christian" = "Protestant", 
+                                  "Christian" = "Orthodox-christian", 
+                                  "Christian" = "Catholic"))
+
+ggplot(data = gss_cat) + 
+  geom_bar(stat = "count", aes(x = as_factor(small.relig)), fill = "blue") + 
+  labs(x="", y = "Number of Respondents") + 
+  theme(axis.text.x = element_text(size = 8, angle = 90))
+
+```
+
+
+
+## Your Turn
+
+Using the *forcats* [cheatsheet as a reference](https://posit.co/wp-content/uploads/2022/10/factors-1.pdf), can you: 
+
+  * Modify the code above to collapse the levels of the **marital status** attribute to only include: Married, Never Married, and Other? **Hint:** You can  also use the `fct_collapse` function to accomplish this task. 
+  * Can you then generate a similar barchart showing the number of respondents by marital status? 
+  * Use the `ggsave` function to export your barchart to a .png file when you are done...
+
+    `ggsave("my_cool_barchart.png", units = "in", width = 16, height = 8)`
+
+
+```{r label="Your Time To Shine"}
+
+
+```
+
+<br> 
+
+For the remainder of the session today, review the attributes in the [dataset we have here](https://forcats.tidyverse.org/reference/gss_cat.html) then experiment with some of the commonly used functions from the *dplyr* package that we have seen before (e.g., `filter`, `mutate`, `summarise`). 
+
+When you are done, celebrate `r emo::ji("party")`
+
+<br> 
+
+----
+
+
+<br> 
+
+<center> You have reached the end! `r emo::ji("beer")` </center>
+
+<br> 
+

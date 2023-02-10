@@ -1,0 +1,115 @@
+---
+title: "Getting Started with tidyr—Part 2"
+date: "Last Updated `r Sys.Date()`"
+fontsize: 16pt
+output:
+  html_document:
+    theme: united
+    df_print: paged
+---
+<br> 
+
+This week we are formally introducing the *tidyr* package, which along with *dplyr* provide the backbone and foundation for data wrangling within the *tidyverse*. Let's practice a few of the things you encountered in the assigned reading for today using a familiar dataset: 
+
+ * [Tidy Data](https://r4ds.had.co.nz/tidy-data.html)
+ + [Relational Data](https://r4ds.had.co.nz/relational-data.html)
+
+The code chunk below loads libraries we will need into memory and recreates the data object from the preceding Notebook. Because the [chunk option](https://bookdown.org/yihui/rmarkdown-cookbook/chunk-options.html) `include = FALSE` is there, those lines of code will be run, but **will not** appear in the knitted HTML file. 
+
+```{r label="Load R Packages", include= FALSE}
+
+library(tidyverse)
+library(jsonlite)
+library(emo)
+
+nyc_ppb <- fromJSON("https://data.cityofnewyork.us/resource/wwhr-5ven.json?%24limit=5000")
+nyc_ppb_tb <- as_tibble(nyc_ppb)
+
+```
+
+<br> 
+
+This portion of our work for the day focuses on [pivoting as described in the lead reading](https://r4ds.had.co.nz/tidy-data.html#pivoting). Sometimes we have data with multiple or related characteristics that are **captured in separate rows** or alternately **captured in separate columns** and pivoting allows us to shift between those two ways of structuring the information. Data with a time component are a prime example of when pivoting can come into play. 
+
+In the participatory budgeting tibble, Queens has the most records, so let's extract those and demonstrate how pivoting works by looking at budgeting proposals by category and year. According to the metadata, the borough codes are as follows: 
+
+> Borough Code (1-Manhattan, 2-Bronx, 3-Brooklyn, 4-Queens, 5-Staten Island)
+
+Let's use the `dplyr::select` function to extract the columns that we care about and assign them to a new tibble object. 
+
+<br>
+
+```{r label="Extract Queens Data"}
+
+nyc_ppb_queens <- nyc_ppb_tb %>%
+  drop_na(nta) %>%
+  filter(borough_code == 4) %>%
+  select(c(vote_year, category, cost, votes, nta))
+
+dim(nyc_ppb_queens)
+
+
+```
+This new tibble is currently in **long format** because we have multiple records with the same year. We can change the orientation of these data using functions from the *tidyr* package `r emo::ji("cool")`... but it is often useful for `summarise` the data first `r emo::ji("wink")`
+
+
+```{r label="Extract and Pivot Queens Data"}
+
+nyc_ppb_queens_summed <- nyc_ppb_queens %>%
+  group_by(category, vote_year) %>%
+  mutate(cost_num = as.numeric(cost)) %>%
+  summarise(total_cost = sum(cost_num))
+
+dim(nyc_ppb_queens_summed)
+View(nyc_ppb_queens_summed)
+
+
+nyc_ppb_queens_wide <- nyc_ppb_queens_summed %>% 
+  pivot_wider(names_from = vote_year, values_from = total_cost)
+
+dim(nyc_ppb_queens_wide)
+View(nyc_ppb_queens_wide)
+
+
+```
+
+
+### **Your Turn** 
+
+<br>
+
+In the code chunk below, add some code that pivots the built-in [billboard dataset](https://tidyr.tidyverse.org/reference/billboard.html) from **wide format** to **long format** using *tidyr* functions from today's reading. 
+
+<br> 
+
+Just don't ask me why there are **76** weeks rather than **52** weeks... `r emo::ji("eyes")`
+
+<br>
+
+```{r label="Pivot Billboard Hot 100 Data"}
+
+songs_2000 <- billboard
+
+```
+<br> 
+
+Oh, [Baha Men](https://youtu.be/ojULkWEUsPs)...
+
+<br> 
+
+...and [Britney Spears](https://youtu.be/CduA0TULnow)...
+
+<br> 
+
+...and [N'Sync](https://youtu.be/Eo-KmOd3i7s)
+
+<br> 
+
+Looks like 2000 was a pretty good music year, no? `r emo::ji("wink")`
+
+<br>
+
+<center> You have reached the end! `r emo::ji("sing")`</center>
+
+<br> 
+

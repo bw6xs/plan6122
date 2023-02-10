@@ -1,0 +1,118 @@
+---
+title: "Getting Started with tidyr"
+date: "Last Updated `r Sys.Date()`"
+fontsize: 16pt
+output:
+  html_document:
+    theme: united
+    df_print: paged
+---
+<br> 
+
+This week we are formally introducing the *tidyr* package, which along with *dplyr* provide the backbone and foundation for data wrangling within the *tidyverse*. Let's practice a few of the things you encountered in the assigned reading for today using a familiar dataset: 
+
+ * [Tidy Data](https://r4ds.had.co.nz/tidy-data.html)
+ * [Relational Data](https://r4ds.had.co.nz/relational-data.html)
+
+The code chunk below loads libraries we will need into memory and because the [chunk option](https://bookdown.org/yihui/rmarkdown-cookbook/chunk-options.html) `include = FALSE` is there, those lines of code will be run, but **will not** appear in the knitted HTML file. 
+
+```{r label="Load R Packages", include= FALSE}
+
+library(tidyverse)
+library(jsonlite)
+library(emo)
+
+```
+
+<br> 
+
+Great, now let's use what we have learned about APIs to pull down the New York City Participatory Budgeting data that we saw last week `r emo::ji("laughing")` Recall that sometimes we can use the `$limit` parameter (please see the API documentation to determine if this applies) to retrieve more than the default 1000 records. Note that the dollar sign is a special character and is encoded as `%24` in the HTTP context and that more detail is [given here](https://en.wikipedia.org/wiki/Percent-encoding). Also recall that you can check encoding using a [site like this one](https://meyerweb.com/eric/tools/dencoder) to be sure. 
+
+<br>
+
+```{r label="Get NYC Data and Demo Parsers"}
+
+nyc_ppb <- fromJSON("https://data.cityofnewyork.us/resource/wwhr-5ven.json?%24limit=5000")
+class(nyc_ppb)
+dim(nyc_ppb)
+ 
+nyc_ppb_tb <- as_tibble(nyc_ppb)
+class(nyc_ppb_tb)
+dim(nyc_ppb_tb)
+
+
+# View the first ten rows and ONLY THE COLIUMNS THAT FIT ON THE SCREEN...
+nyc_ppb_tb
+
+
+# View the first ten rows and ALL columns by setting the width argument to infinite...
+print(nyc_ppb_tb, width = Inf)
+
+
+# Use parsing function to demonstrate how we might check and enforce integrity of
+# data types...
+class(nyc_ppb_tb$vote_year)
+the_years <- c("2014", "2015", "2016", "2017")
+we_already_know_this_is_a_character_vector <- parse_factor(nyc_ppb_tb$vote_year, levels = the_years)
+attr(we_already_know_this_is_a_character_vector, "problems")
+
+we_already_know_this_is_a_character_vector <- parse_vector(nyc_ppb_tb$vote_year, collector = col_character())
+attr(we_already_know_this_is_a_character_vector, "problems")
+
+
+```
+
+<br> 
+
+In the above code chunk, we are using two of the parse functions from *readr* to verify that these data fit a particular mold (i.e., a factor with specific level or a character vector). One can imagine a situation where input collected from a survey or a user might be checked if it needs to be formatted as a date, for example (e.g., `parse_datetime`).
+
+Let's practice some of the subsetting tricks we ave learned so far `r emo::ji("flex")`
+
+```{r label="Subsetting Refresher"}
+
+nyc_ppb_tb[, 1:3]    # Subsets columns by position
+
+nyc_ppb_tb %>% select(1:3)
+
+
+nyc_ppb_tb[1:3, ]    # Subsets rows by position
+
+nyc_ppb_tb %>% slice(1:3)
+
+
+nyc_ppb_tb[1:3, 1:3] # Subsets rows and columns by position
+
+?slice
+
+nyc_ppb_tb %>% 
+  select(1:3) %>%
+  slice(1:3)
+
+```
+
+<br> 
+
+The pipe operator `%>%` allows us to chain together functions, which reduces the need to create and manage lots and lots of objects. A full history and overview of the pipe operator is [available here](https://www.datacamp.com/community/tutorials/pipe-r-tutorial) but you really just need to know two things: 
+
+1. If there is no assignment operator `<-` the result is not stored to an object and 
+2. The order matters! 
+
+In the above code, we take the **nyc_ppb_tb** tibble object, then we select columns 1 through 3, then we slice rows 1 through from those first three columns. One of the nice things about the *tidyverse* packages is they have a common style [function reference](https://tidyr.tidyverse.org/reference/index.html) that makes it easy to quickly find functions and understand how to use them.
+
+
+### **Your Turn** 
+
+<br>
+
+Insert a completely new code chunk and write some code that determines whether&mdash;in general&mdash;more expensive proposals (i.e, the **cost** column) were more or less likely to be selected for funding (i.e., the **winner** column). **Hint:** you can accomplish this using function from *tidyr* and *dplyr* that we have already encountered. The *dplyr* function reference is [available here](https://dplyr.tidyverse.org/reference/index.html) for your convenience `r emo::ji("panda")` 
+
+<br>
+
+----
+
+<br>
+
+<center> You have reached the end! </center>
+
+<br> 
+

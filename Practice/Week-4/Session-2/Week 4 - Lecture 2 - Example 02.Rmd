@@ -1,0 +1,264 @@
+---
+title: "Getting Our Feet Wet With The lubridate Package"
+date: "Last Updated `r Sys.Date()`"
+fontsize: 16pt
+output:
+  html_document:
+    theme: united
+    df_print: paged
+---
+ <br> 
+
+This is the second part of the hands-on practice for today. Working with dates in R can be tricky. We will walk through some of the more important tips and tricks in class right now. The *lubridate* package is the recommended approach but there are also base R functions that allow you to manipulate date, time, and 
+date-time objects `r emo::ji("time")`
+
+ * [Strings](https://r4ds.had.co.nz/strings.html)
+ * [Factors](https://r4ds.had.co.nz/factors.html)
+ * [Dates and Times](https://r4ds.had.co.nz/dates-and-times.html)
+
+We can retrieve the current date, time, and date-time from your computer's operating system using the functions below.
+
+<br>
+
+```{r label="Load R Packages", include= FALSE}
+
+options(repos=c(CRAN="https://mirrors.nics.utk.edu/cran/")) 
+
+library(tidyverse)
+library(lubridate)
+library(emo)
+library(janitor)
+library(jsonlite)
+
+```
+
+
+
+```{r label="Get Current Date and Time"}
+
+lubridate::today()
+
+lubridate::now()
+
+format(lubridate::now(), "%H:%M %p")
+
+```
+
+<br> 
+
+## Your Turn
+
+Take a look at the help documentation for the base R `strptime` function, then modify this line of code `format(lubridate::now(), "%H:%M %p")` so that is displays the current time like this **mm/dd/yy hour:minutes:seconds**  `r emo::ji("yes")`
+
+<br> 
+
+    %a → Abbreviated weekday name in the current locale on this platform. (Also matches full name on input: in some locales there are no abbreviations of names.)
+
+    %A → Full weekday name in the current locale. (Also matches abbreviated name on input.)
+
+    %b → Abbreviated month name in the current locale on this platform. (Also matches full name on input: in some locales there are no abbreviations of names.)
+
+    %B → Full month name in the current locale. (Also matches abbreviated name on input.)
+
+    %c → Date and time. Locale-specific on output, "%a %b %e %H:%M:%S %Y" on input.
+
+    %C → Century (00–99): the integer part of the year divided by 100.
+
+    %d → Day of the month as decimal number (01–31).
+
+    %D → Date format such as %m/%d/%y: the C99 standard says it should be that exact format (but not all OSes comply).
+   
+    %e → Day of the month as decimal number (1–31), with a leading space for a single-digit number.
+
+    %F → Equivalent to %Y-%m-%d (the ISO 8601 date format).
+
+    %g → The last two digits of the week-based year (see %V). (Accepted but ignored on input.)
+
+    %G → The week-based year (see %V) as a decimal number. (Accepted but ignored on input.)
+
+    %h → Equivalent to %b.
+
+    %H → Hours as decimal number (00–23). As a special exception strings such as ‘⁠24:00:00⁠’ are accepted for input, since ISO 8601 allows these.
+
+    %I → Hours as decimal number (01–12).
+
+    %j → Day of year as decimal number (001–366): For input, 366 is only valid in a leap year.
+
+    %m → Month as decimal number (01–12).
+
+    %M → Minute as decimal number (00–59).
+
+    %n → Newline on output, arbitrary whitespace on input.
+
+    %p → AM/PM indicator in the locale. Used in conjunction with %I and not with %H. An empty string in some locales (for example on some OSes, non-English European locales including Russia). The behaviour is undefined if used for input in such a locale. Some platforms accept %P for output, which uses a lower-case version (%p may also use lower case): others will output P.
+
+    %r → For output, the 12-hour clock time (using the locale's AM or PM): only defined in some locales, and on some OSes misleading in locales which do not define an AM/PM indicator. For input, equivalent to %I:%M:%S %p.
+
+    %R → Equivalent to %H:%M.
+
+    %S → Second as integer (00–61), allowing for up to two leap-seconds (but POSIX-compliant implementations will ignore leap seconds).
+
+    %t → Tab on output, arbitrary whitespace on input.
+
+    %T → Equivalent to %H:%M:%S.
+
+    %u → Weekday as a decimal number (1–7, Monday is 1).
+
+    %U → Week of the year as decimal number (00–53) using Sunday as the first day 1 of the week (and typically with the first Sunday of the year as day 1 of week 1). The US convention.
+
+    %V → Week of the year as decimal number (01–53) as defined in ISO 8601. If the week (starting on Monday) containing 1 January has four or more days in the new year, then it is considered week 1. Otherwise, it is the last week of the previous year, and the next week is week 1. (Accepted but ignored on input.)
+
+    %w → Weekday as decimal number (0–6, Sunday is 0).
+
+    %W → Week of the year as decimal number (00–53) using Monday as the first day of week (and typically with the first Monday of the year as day 1 of week 1). The UK convention.
+
+    %x → Date. Locale-specific on output, "%y/%m/%d" on input.
+
+    %X → Time. Locale-specific on output, "%H:%M:%S" on input.
+
+    %y → Year without century (00–99). On input, values 00 to 68 are prefixed by 20 and 69 to 99 by 19 – that is the behaviour specified by the 2018 POSIX standard, but it does also say ‘it is expected that in a future version the default century inferred from a 2-digit year will change’.
+
+    %Y → Year with century. Note that whereas there was no zero in the original Gregorian calendar, ISO 8601:2004 defines it to be valid (interpreted as 1BC): see https://en.wikipedia.org/wiki/Year_zero. However, the standards also say that years before 1582 in its calendar should only be used with agreement of the parties involved. For input, only years 0:9999 are accepted.
+
+    %z → Signed offset in hours and minutes from UTC, so -0800 is 8 hours behind UTC. Values up to +1400 are accepted. (Standard only for output. For input R currently supports it on all platforms.)
+
+    %Z → (Output only.) Time zone abbreviation as a character string (empty if not available). This may not be reliable when a time zone has changed abbreviations over the years.
+
+
+```{r label="Your Time To Shine"}
+
+
+```
+
+Sometimes, a *lubridate* or base R function will require you to provide a time zone. You can also retrieve this from your operating system and a full list is available using the `OlsonNames` function. To try it out, paste or type what you see below into the RStudio Console: 
+
+`Sys.timezone()`
+
+`OlsonNames()`
+
+In the interest of working with a familiar dataset, let's recreate the Tenderloin police calls dataset from Lab Exercise #1 and then, take a closer look at the incident dates attribute `r emo::ji("magnifying")`
+
+
+```{r label="Grab Tenderloin Police Calls Data"}
+
+police_calls_tb <- fromJSON("https://data.sfgov.org/resource/wg3w-h783.json?&incident_year=2021&$limit=30000") %>%
+  as_tibble() 
+
+class(police_calls_tb)
+dim(police_calls_tb)
+
+head(police_calls_tb$incident_date)
+
+class(police_calls_tb$incident_date)
+class(police_calls_tb$incident_datetime)
+
+```
+
+These are stored as character string rather than dates or date-times `r emo::ji("fear")`. However, this is **NBD** because we can just convert 'em... `r emo::ji("dancing")` 
+
+
+```{r label="Convert Strings To Actual Dates"}
+
+police_calls_tb <- police_calls_tb %>%
+  mutate(incident_actual_date = as_date(incident_date))
+
+head(police_calls_tb$incident_actual_date)
+class(police_calls_tb$incident_actual_date)
+
+```
+
+Converting character strings to date format is a common task that you will encounter. Also, you may need to change the format of a date or # extract specific components of a date. You read about many of these functions in the *lubridate* package today and the [*lubridate* function reference](https://lubridate.tidyverse.org/reference/index.html) has a full accounting, but here are a few examples...
+
+```{r label="Extract Date-Time Componets"}
+
+month(head(police_calls_tb$incident_actual_date))
+month(head(police_calls_tb$incident_actual_date), label=TRUE)
+month(police_calls_tb$incident_actual_date[17:36], label=TRUE)
+
+wday(police_calls_tb$incident_actual_date[1:5], label=TRUE, abbr= FALSE)
+
+
+# Why does the second one fail? How could you fix it?
+ymd("2023-02-12")
+ymd("02/12/2023")
+
+
+```
+
+<br> 
+
+## Your Turn
+
+Can you write a line of code that returns the **day of the month** on which the first 25 entries in the police calls tibble occurred? **Hint:** We do not want the `wday` function for this. Here is the *lubridate* [function reference](https://lubridate.tidyverse.org/reference/index.html) again. 
+
+
+
+```{r label="Another Opportunity To Shine"}
+
+
+```
+
+We can also calculate the **elapsed time** between when an incident occurred and when it was reported using the interval operation. Take a look at `?period` then proceed... `r emo::ji("cross")` 
+
+
+```{r}
+
+police_calls_tb <- police_calls_tb %>%
+  mutate(report_actual_date = as_date(report_datetime))
+
+
+police_calls_tb <- police_calls_tb %>%
+  mutate(reporting_lag = as.period(police_calls_tb$incident_actual_date %--% police_calls_tb$report_actual_date))
+
+# Note that the newly created attribute is of the special class of object called period that measures the elapsed time seconds and also show in more human-friendly terms...
+
+police_calls_tb$reporting_lag[1:10]
+
+time_length(police_calls_tb$reporting_lag[1:10], "hour")
+
+time_length(police_calls_tb$reporting_lag[1:10], "second")
+
+
+
+# Focus on a single example... 1 day is 24 hours, 1 hour is 60 minutes, 1 minute is 60 seconds 
+police_calls_tb$reporting_lag[5]
+
+time_length(police_calls_tb$reporting_lag[5], "hour")
+
+# 24 * 60
+time_length(police_calls_tb$reporting_lag[5], "minute")
+
+# 24 * 60 * 60
+time_length(police_calls_tb$reporting_lag[5], "second")
+
+
+```
+
+
+<br> 
+
+
+## Your Turn
+
+Can you write some code that returns the **number of hours and/or minutes** between now and the start of the Super Bowl on "2023-02-12 18:30:00 EST"? **Hint:** We can get the current time with `lubridate::now()` and you will need to use the `as_date` function and the **format** argument like so:  
+
+`format = "%Y-%m-%d  %H:%M:%S"`
+
+
+
+```{r label="Yet Another Opportunity To Shine"}
+
+
+
+```
+
+<br> 
+----
+
+
+<br> 
+
+<center> You have reached the end! `r emo::ji("tired")` </center>
+
+<br> 
+

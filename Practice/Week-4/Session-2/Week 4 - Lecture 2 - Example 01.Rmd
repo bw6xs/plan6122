@@ -1,0 +1,152 @@
+---
+title: "Getting Our Feet Wet With The stringr Package"
+date: "Last Updated `r Sys.Date()`"
+fontsize: 16pt
+output:
+  html_document:
+    theme: united
+    df_print: paged
+---
+ <br> 
+
+Today we are focusing on working with strings and dates in RStudio. Usually when I use the word string, I actually mean a character string but technically you could have [a string](https://en.wikipedia.org/wiki/String_(computer_science)) that is of some other data type. You read about the *stringr* package today and we talked briefly about regular expressions pattern matching in class.  Let's practice a little to begin getting a feel for some of the more commonly used functions in *stringr* `r emo::ji("lol")`
+
+ * [Strings](https://r4ds.had.co.nz/strings.html)
+ * [Factors](https://r4ds.had.co.nz/factors.html)
+ * [Dates and Times](https://r4ds.had.co.nz/dates-and-times.html)
+
+Take a minute to look over the help documentation for the `lst` function. Now use it to create an object called **names_list** that contains the following names: Marge, Lisa, Maggie, Patty, Selma
+
+**Hint:** You will need to insert a line of code into the code chunk below of create the **names_list** object in the RStudio Console in order to proceed. The names also need to be in quotation marks `r emo::ji("wink")`
+
+<br>
+
+```{r label="Load R Packages", include= FALSE}
+
+options(repos=c(CRAN="https://mirrors.nics.utk.edu/cran/")) 
+
+library(tidyverse)
+library(emo)
+library(janitor)
+
+```
+
+
+
+```{r label="Fun With Strings"}
+
+# We can use the `str_length` function to return the number elements in the list we created...
+length(names_list)
+
+
+# We can use the `str_length` function to return the number of characters in each element of the list we created or in a specific element...
+str_length(names_list)
+str_length(names_list)[3]
+
+
+# We can use the `str_detect` function to determine if elements that match a particular pattern exist here...
+str_detect(names_list, "Edna")
+
+# Does the list element begin with an M?
+str_detect(names_list, "^M")
+
+# Does the list element end with an a?
+str_detect(names_list, "a$")
+
+# Does the list element contain a repeated g or a repeated t?
+str_detect(names_list, "gg|tt")
+
+
+```
+
+The above code chunk shows how we can use the special notation of [regular expressions](https://cran.r-project.org/web/packages/stringr/vignettes/regular-expressions.html) to build more nuanced patterns for string matching. Now, you get to try it out `r emo::ji("highfive")`
+
+
+## Your Turn
+
+Can you modify the line of code above to return the number and percentage of elements in the list that contain the letter `e`? **Hint:** take a look at the `tabyl` function…
+
+```{r label="Your Time To Shine"}
+
+
+```
+
+We can also use the `str_extract_all` function to return a **list of the elements themselves** that match a particular pattern rather than a [logical vector](https://r4ds.had.co.nz/vectors.html#logical) indicating whether each element matched the specified pattern or not. 
+
+<br> 
+
+```{r label="Extract Elements Of Interest"}
+
+str_extract_all(names_list, pattern = ".*a$")
+unlist(str_extract_all(names_list, ".*a$"))
+
+str_extract_all(names_list, pattern = ".*a$", simplify = TRUE)
+
+names_list[str_detect(names_list, ".*a$")]
+
+```
+
+In the above code chunk, we see different ways of accomplishing the same task&mdash;remember, we can always use the bracketing approach. We also use the dot and asterisk to match any character (dot) any number of times (asterisk) followed by the letter `a` at the very end of the string (dollar sign). 
+
+<br> 
+
+## Your Turn
+
+Can you modify the code above to return Selma but not Lisa? The cheatsheat for the *stringr* package is [available here](https://posit.co/wp-content/uploads/2022/10/strings-1.pdf) and the function reference is [available here](https://stringr.tidyverse.org/reference/index.html).
+
+
+```{r label="Another Opportunity To Shine"}
+
+
+```
+
+
+There are several other *stringr* functions that are useful for formatting strings and a few of these are highlighted below... 
+
+
+```{r label="Manipulating Strings"}
+
+# Let's add a new element and replace one of them 
+names_list <- append(names_list, "Bart", )
+names_list
+
+names_list_new <- str_replace(names_list, "Patty", "Milhouse")
+names_list_new
+
+
+other_string <- 'This is a different string I created for demonstration purposes.'
+
+str_sub(other_string, 6, 19)
+
+str_to_title(str_sub(other_string, 6, 19))
+
+str_to_upper(str_sub(other_string, 6, 19))
+
+str_extract(other_string, "^*for")
+
+str_extract(other_string, "[[:alpha:]]*is+")
+
+
+```
+Frankly, working with strings is not something that I do very often. When I do have a need for this, I always have to refer to the *stringr* cheatsheet and materials on regular expressions. In fact, experiment with the [interactive regular expression builder](https://spannbaueradam.shinyapps.io/r_regex_tester) on this website if you like... `r emo::ji("grinning")`    
+
+<br> 
+
+Other resources for working with strings and regular expressions include: 
+
+ * [Textual Analysis Tutorial](https://www.storybench.org/getting-started-stringr-textual-analysis-r)
+ * [Tutorial from Kaggle](https://www.kaggle.com/code/hamelg/stringr-tutorials/notebook)
+
+
+<br> 
+
+
+----
+
+
+<br> 
+
+<center> You have reached the end! `r emo::ji("flex")` </center>
+
+<br> 
+

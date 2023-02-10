@@ -1,0 +1,104 @@
+---
+title: "Getting Started with dplyr"
+date: "Last Updated `r Sys.Date()`"
+fontsize: 16pt
+output:
+  html_document:
+    theme: united
+    df_print: paged
+---
+<br> 
+
+This week we are formally introducing the *tidyr* package, which along with *dplyr* provide the backbone and foundation for data wrangling within the *tidyverse*. Let's practice a few of the things you encountered in the assigned reading for today using a familiar dataset: 
+
+ * [Tidy Data](https://r4ds.had.co.nz/tidy-data.html)
+ + [Relational Data](https://r4ds.had.co.nz/relational-data.html)
+
+The code chunk below loads libraries we will need into memory and recreates the data object from the preceding Notebook. Because the [chunk option](https://bookdown.org/yihui/rmarkdown-cookbook/chunk-options.html) `include = FALSE` is there, those lines of code will be run, but **will not** appear in the knitted HTML file. 
+
+```{r label="Load R Packages", include= FALSE}
+
+library(tidyverse)
+library(jsonlite)
+library(emo)
+
+nyc_ppb <- fromJSON("https://data.cityofnewyork.us/resource/wwhr-5ven.json?%24limit=5000")
+nyc_ppb_tb <- as_tibble(nyc_ppb)
+
+nta_demog <- read_csv("demo_2016acs5yr_nta.csv")
+
+```
+
+<br> 
+
+This portion of our work for the day focuses on [relational data and the various types of joins](https://r4ds.had.co.nz/relational-data.html) that we can perform with the *dplyr* package. Typically these operations require a unique identifier (e.g., primary key, foreign key) that exists in both of the datasets that we want to link `r emo::ji("link")` 
+
+<br> 
+
+The instructor has provided a .csv file that is based on 2013-2017 American Community Survey 5-Year Estimates data for by Neighborhood Tabulation area [downloaded from this website](https://www1.nyc.gov/site/planning/planning-level/nyc-population/american-community-survey.page.page). The relevant attributes for our purposes include: 
+
+ * The `Pop_1` column is total population of the NTA
+ * The `Pop65pl1E` column is the population 65 years and over
+ * The `Pop65pl1C` column is the percent of the population 65 years and over
+ * The `MdAgeE` column is median age in years
+
+<br> 
+
+### **Your Turn** 
+
+Insert additional code into the code chunk below that reads in the *demo_2016acs5yr_nta.csv* file and stores it in an object called `nta_demog`. The function reference for the *readr* package is [available here](https://readr.tidyverse.org/reference/index.html).
+
+
+```{r label="Get 2017 Data for NYC and Import Census Data"}
+
+nyc_ppb_2017_nta <- nyc_ppb_tb %>%
+    dplyr::select(c(vote_year, category, cost, votes, nta)) %>%
+    drop_na(nta, vote_year, cost) %>%
+    filter(vote_year == 2017)
+  
+
+```
+
+
+Now take a moment to inspect the contents of these newly created objects `r emo::ji("magnifying")`
+
+<br> 
+
+We want to join the participatory budgeting data from the year 2017 with/to the Neighborhood Tabulation Area (NTA) demographics that we just imported. In order to do that, we need a key or a unique identifier in `nyc_ppb_2017_nta` and in `nta_demog` that "links" the information. Let's use the `which` function and the [`%in%` operator](https://r4ds.had.co.nz/transform.html?q=%in%#logical-operators) to see if one exists....
+
+```{r label="Check For A Usable Key"}
+
+which(nyc_ppb_2017_nta$nta %in% nta_demog$GeogName)
+
+```
+
+What does the line of code in the chunk above tell us? Take a look at the help documentation for the `str_trim` and the `mutate` functions, then proceed... `r emo::ji("bird")` 
+
+<br> 
+
+```{r label="Create A Usable Key"}
+
+nyc_ppb_2017_nta <- nyc_ppb_2017_nta %>%
+  mutate(nta_name = str_trim(nta))
+
+which(nyc_ppb_2017_nta$nta_name %in% nta_demog$GeogName)
+
+```
+
+<br> 
+
+### **Your Turn** 
+
+Insert a new code chunk below implements a left join, which you read about today. A left join (i.e., `left_join`) retains all the rows or records in the **x** argument position (i.e., the first object) and ONLY retains the rows or records in the **y** argument position (i.e., the second object) that match one of the values in the first object.
+
+
+<br> 
+
+Did it work? If not, can you fix it? `r emo::ji("hammer")`
+
+<br>
+
+<center> You have reached the end! `r emo::ji("grinning")` </center>
+
+<br> 
+
