@@ -273,7 +273,7 @@ baseurl <- "https://api.census.gov/data/2018/acs/acs5?"
 param1 <- "get="
 param2 <- "&for=place:"
 param3 <- "&in=state:06"
-key <- "&key=f9f31e09fed0f44d23a8a354469e461df98f34cb"
+key <- "&key=YOUR_KEY_GOES_HERE"
 
 # These are the place FIPS codes for San Francisco, Oakland, and Berkeley
 places_list <- paste("67000", "53000", "06000", sep = ",")
