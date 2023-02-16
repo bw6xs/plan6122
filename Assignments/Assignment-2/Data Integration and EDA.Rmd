@@ -304,7 +304,7 @@ DataExplorer::plot_correlation(na.omit(water_testing[ , c(3,4, 10:15)]))
 
 wq_cor <- water_testing %>%
   select(c(4, 10:15)) %>%
-  mutate(Well_Age = 2022 - Year_Constructed) %>%
+  mutate(Well_Age = 2023 - Year_Constructed) %>%
   select(-Year_Constructed) %>%
   corrr::correlate()
 
