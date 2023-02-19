@@ -39,17 +39,30 @@ Let's use the `dplyr::select` function to extract the columns that we care about
 
 <br>
 
-```{r label="Extract Queens Data"}
+```{r label="Extract Queens Data and Explore Missing Values"}
 
 nyc_ppb_queens <- nyc_ppb_tb %>%
-  drop_na(nta) %>%
   filter(borough_code == 4) %>%
   select(c(vote_year, category, cost, votes, nta))
 
 dim(nyc_ppb_queens)
 
+nyc_ppb_queens %>% summarise_all(~sum(is.na(.)))
+
+
+nyc_ppb_queens <- nyc_ppb_queens %>%
+  drop_na(nta) 
+
+dim(nyc_ppb_queens)
+nyc_ppb_queens %>% summarise_all(~sum(is.na(.)))
+
 
 ```
+
+In the above chunk, we `filter` the records for the borough of Queens, then **only** extract the five columns listed. We check how many rows and columns remain usinbg the base R `dim` function. Next, we display the number of missing data values by column in the resultsing tibble object. There are many ways to do this, but if you want to stay in *dplyr* the code above works. But what is going on with that line of code above? The `summarise_all` function is one of many available in the *dplyr* package for summarizing data and the tilde `~ `specifies a separate function to be applied, which in this case is the combination of `sum` and `is.na`. What follows the tilde is what is called an anonymous function (also known as a lambda expression). This is a function definition that is created and used, but that is never assigned a specific identifier. More on this in two weeks when we cover functions, loops, and iteration.
+
+We have seen how functions can be nested inside one another, but the pipe operator `%>%` is designed to eliminate the need to do that. However, base R functions like `is.na` and `sum` do not work well with the pipe operator (i.e., they are baby boomers to the tidyverse) `r emo::ji("laugh")`. The solution is to use the `.` placeholder to move what is written on the left-hand side (i.e., the budgeting tibble) of the pipe into the first argument of the function on the right-hand side of the pipe (i.e., `summarise_all`). Basically we are saying feed the **nyc_ppb_queens** tibble to the `summarise_all` function as its first argument. Next, we create an ephemeral function that sums the results of the `is.na` function and because the `summarise_all` function operates on all columns in the tibble specified as its first argument, it returns the information we are after. Make sense? `r emo::ji("geek")`
+
 This new tibble is currently in **long format** because we have multiple records with the same year. We can change the orientation of these data using functions from the *tidyr* package `r emo::ji("cool")`... but it is often useful for `summarise` the data first `r emo::ji("wink")`
 
 
@@ -61,14 +74,14 @@ nyc_ppb_queens_summed <- nyc_ppb_queens %>%
   summarise(total_cost = sum(cost_num))
 
 dim(nyc_ppb_queens_summed)
-View(nyc_ppb_queens_summed)
+glimpse(nyc_ppb_queens_summed)
 
 
 nyc_ppb_queens_wide <- nyc_ppb_queens_summed %>% 
   pivot_wider(names_from = vote_year, values_from = total_cost)
 
 dim(nyc_ppb_queens_wide)
-View(nyc_ppb_queens_wide)
+glimpse(nyc_ppb_queens_wide)
 
 
 ```
