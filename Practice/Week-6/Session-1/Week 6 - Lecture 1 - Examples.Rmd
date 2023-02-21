@@ -1,0 +1,285 @@
+---
+title: "Functions, Loops, and Iteration"
+date: "Last Updated `r Sys.Date()`"
+fontsize: 16pt
+output:
+  html_document:
+    theme: united
+    df_print: paged
+---
+ <br> 
+
+This week we are introducing some of the tools and tricks for iteration and more efficiently processing data in the R environment `r emo::ji("smile")` 
+
+
+```{r label="Load R Packages", include= FALSE}
+
+library(tidyverse)
+library(jsonlite)
+library(lubridate)
+library(ggpubr)
+library(viridis)
+library(gapminder)
+library(tidycensus)
+library(fabricatr)
+library(httr)
+library(emo)
+
+```
+
+
+The assigned readings for this week are available here and may be useful as you make your way through this activity: 
+
+ * [R Language Control Structures](https://info201.github.io/control-structures.html#control-structures)
+ + [Iteration](https://r4ds.had.co.nz/iteration.html)
+ + [Debugger](https://support.rstudio.com/hc/en-us/articles/200713843)
+
+As discussed in the assigned reading and in the lecture, **if then else** statements are fundamental building blocks that help to control the "flow" or our code. 
+
+<center> ![](./img/r-if-statement-syntax.png){width=500px} </center>
+
+<br> 
+
+An `if` statement can be paired with an `else` statement, but this is not required. For more nuanced control-flow constructs, we can pair the `if` statement with one or more `else if` statements and a final `else` statement. Just remember that as soon as one of the branches evaluates as `TRUE` the subsequent branches will not be evaluated `r emo::ji("fear")` 
+
+<br> 
+
+## Wrangle Census Data 
+
+We also learned that functions have arguments or parameters that it uses to perform the specified operations. These are always outlined in the help documentation page for a given function. We call (i.e., execute) a function using its name and by providing its required arguments. This week we are introducing the *purrr* package, but first we need to understand some of the basic of control structures in R. Let's walk through creating and calling a simple function as a segue into `for` and `while` loops. We will be using the *tidycensus* package to access American Community Survey data from the web. Rather than hard-coding the Census API key, we can use the `tidycensus::census_api_key` function to save it to our [.Renviron](https://support.rstudio.com/hc/en-us/articles/360047157094-Managing-R-with-Rprofile-Renviron-Rprofile-site-Renviron-site-rsession-conf-and-repos-conf), then we can read it in as needed. If you are working on the same computer, you should only have to install the key once: 
+
+`Sys.setenv(CENSUS_API_KEY="yourkeyinquotationmarks")`
+
+To verify that your Census API key is saved to your .Renviron file, simply type the following into the **Console** and press **Enter**: 
+
+`Sys.getenv("CENSUS_API_KEY")`
+
+<br>
+
+Let's deepen our understanding by creating a custom function of our very own. The first code chunk below sets the stage for the second code chunk in that we will demonstrate a specific use case, then write a custom function to lend flexibility. Assume that we want to know how many people have a less than a high school diploma. Educational attainment, English proficiency, race, and other factors have been [shown to correlate](https://www.sciencedirect.com/science/article/pii/S2212420920315120) with disaster assistance, for example. We can use the `tidycensus::load_variables` function (as shown below) to browse the available Census information and construct an indicator of educational attainment. 
+
+`v19 <- load_variables(2019, "acs5", cache = TRUE)`
+
+`View(v19)`
+
+The **tl;dr** version of the above is that the universe of residents aged 25 years and above for whom educational attainment is determined in the ACS 2015-2019 5-Year Estimates is reflected in the B15003_001E variable. Educational attainment and similar attributes are sometimes broken down by age, sex, race, etc. and so, if we want a count of all residents with less than a high school diploma, we need to sum the following: B15003_002E, B15003_003E, B15003_004E, B15003_005E, B15003_006E, B15003_007E, B15003_008E, B15003_009E, B15003_010E, B15003_011E, B15003_012E, B15003_013E, B15003_014E, B15003_015E, and B15003_016E. We use data circa 2019 to better align with the post-Hurricane Michael data from FEMA that we will pull in later... `r emo::ji("rain")` which made landfall in 2018. 
+
+<br>
+
+```{r label="Demonstration Using Florida Counties", message = FALSE, warning = FALSE}
+
+# ---------------------------------------------------------------------------------
+# Retrieve all variables needed to calculate educational attainment indicator 
+# at the county level...
+# ---------------------------------------------------------------------------------
+
+ed_attain_vars <- c("B15003_001E", "B15003_002E", "B15003_003E", "B15003_004E",
+                    "B15003_005E", "B15003_006E", "B15003_007E", "B15003_008E", 
+                    "B15003_009E", "B15003_010E", "B15003_011E", "B15003_012E", 
+                    "B15003_013E", "B15003_014E", "B15003_015E", "B15003_016E" 
+                    )
+
+# Note there are 67 counties in the state of Florida
+florida <- get_acs(state = "FL", geography = "county", 
+                            variables = ed_attain_vars, geometry = FALSE, year = 2019)
+
+# The `get_acs` function returns a tibble object in long format
+# if multiple variables are requested, so we use the 
+# `tidyr::pivot_wider` function to change it to wide format
+florida_wide <- florida %>%
+  pivot_wider(names_from = variable, values_from = c(estimate, moe))
+
+
+# Sum the long list of individual variables to get the count we 
+# are after (i.e., total resident with less than a HS diploma)
+florida_wide$TotNoHSDip <- florida_wide$estimate_B15003_002 +   
+          florida_wide$estimate_B15003_003 + florida_wide$estimate_B15003_004 + 
+          florida_wide$estimate_B15003_005 + florida_wide$estimate_B15003_006 + 
+          florida_wide$estimate_B15003_007 + florida_wide$estimate_B15003_008 + 
+          florida_wide$estimate_B15003_009 + florida_wide$estimate_B15003_010 + 
+          florida_wide$estimate_B15003_011 + florida_wide$estimate_B15003_012 + 
+          florida_wide$estimate_B15003_013 + florida_wide$estimate_B15003_014 + 
+          florida_wide$estimate_B15003_015 + florida_wide$estimate_B15003_016  
+
+# Calculate the percentage using the universe of residents for whom 
+# educational attainment is determined as the denominator
+florida_wide$PctNoHSDip <- dplyr::if_else(florida_wide$estimate_B15003_001 > 0, ((florida_wide$TotNoHSDip / florida_wide$estimate_B15003_001 ) * 100), 0.0)
+
+
+florida_out <- florida_wide %>%
+  select(GEOID, NAME, TotNoHSDip, PctNoHSDip)
+
+glimpse(florida_out)
+  
+```
+
+<br> 
+
+The above code chunk works fine, but what if we wanted to avoid typing all those lines while adding the flexibility to vary the state and/or geography at which we are the calculating the number and percentage of residents aged 25 years and older without a high school diploma? `r emo::ji("cow")` Let's take the code from the previous chunk and create a custom function! `r emo::ji("flex")`
+
+
+```{r label="Create and Call DIY Function", message = FALSE, warning = FALSE}
+
+# ---------------------------------------------------------------------------------
+# Retrieve all variables needed to calculate educational attainment indicator 
+# at the county level...
+# ---------------------------------------------------------------------------------
+
+ed_attain_vars <- c("B15003_001E", "B15003_002E", "B15003_003E", "B15003_004E",
+                    "B15003_005E", "B15003_006E", "B15003_007E", "B15003_008E", 
+                    "B15003_009E", "B15003_010E", "B15003_011E", "B15003_012E", 
+                    "B15003_013E", "B15003_014E", "B15003_015E", "B15003_016E" 
+                    )
+
+calc_nohsdip <- function(the_state, the_geog){
+  
+  the_data_0 <- get_acs(state = the_state, geography = the_geog, 
+                            variables = ed_attain_vars, geometry = FALSE, year = 2019)
+
+  the_data_wide <- the_data_0 %>% 
+    pivot_wider(names_from = variable, values_from = c(estimate, moe))
+
+  the_data_wide$TotNoHSDip <- apply(the_data_wide[, 4:18], MARGIN = 1, sum) 
+
+  the_data_wide$PctNoHSDip <- if_else((the_data_wide$estimate_B15003_001 > 0), 
+                              (the_data_wide$TotNoHSDip /      the_data_wide$estimate_B15003_001  * 100), 
+                              0.0)
+
+  the_data_out <- the_data_wide %>%
+    select(GEOID, NAME, TotNoHSDip, PctNoHSDip)
+  return(the_data_out)
+  
+}
+
+```
+
+<br>
+
+We can call (i.e., execute) the function we just created by supplying the required arguments: 
+
+    `pa_counties <- calc_nohsdip("PA", "county")`
+    
+    `va_places <- calc_nohsdip("VA", "place")`
+    
+    `va_tracts <- calc_nohsdip("VA", "tract")`
+
+Note that the code chunk above makes use of the `apply` function, which is one of the first-generation iteration tools available in base R. Take a look at the [documentation page](http://127.0.0.1:39742/help/library/base/html/apply.html) for `apply` and make sure you understand its usage and arguments, then proceed.
+
+
+### **Your Turn** 
+
+<br>
+
+Insert code into the above code chunk (or insert a completely new code chunk) that creates a second custom function that calculates total and percentage of resident population that is linguistically isolated. Feel free to peruse the variables list, but to save you some time, the universe of residents for whom this characteristic (i.e., persons aged 18 and older who do not speak English well or not at all) is determined is reflected in the B16004_067E variable. If we want a count of all residents aged 18 and older who do not speak English well or not at all, we need to sum the following: B16004_066E, B16004_062E, B16004_061E, B16004_057E, B16004_056E, B16004_052E, B16004_051E, B16004_045E, B16004_044E, B16004_040E, B16004_039E, B16004_035E, B16004_034E, B16004_030E, and B16004_029E. 
+
+When you are done, test out this new custom function! `r emo::ji("grin")`
+
+<br> 
+
+----
+
+## Expand Regionally 
+
+For this portion of the practice activity, we will build on the custom function we just created. Florida is part of what the Census Bureau considers the South Atlantic region along with Delaware, the District of Columbia, Georgia, Maryland, North Carolina, South Carolina, Virginia, and West Virginia. Let's write a simple `for` loop that executes the function for all states in the South Atlantic region and combines the results. 
+
+<br> 
+
+
+```{r label="South Atlantic Region", message=FALSE, warning=FALSE}
+
+# Two letter state abbreviations 
+#     https://www.faa.gov/air_traffic/publications/atpubs/cnt_html/appendix_a.html               
+states_list <- c("DE", "DC", "FL", "GA", "MD", "NC", "SC", "VA", "WV")
+
+output <- data.frame(GEOID=character(), NAME=character(), TotNoHSDip=double(),
+                     PctNoHSDip=double())
+
+for (j in 1:length(states_list)) {
+  county_data <- calc_nohsdip(the_state = states_list[j], the_geog = "county")
+  output <- bind_rows(output, county_data)
+}
+
+write_csv(output, "./data/output_from_South_Atlantic_Region_chunk.csv")
+
+```
+
+<br> 
+
+What is important to note in the above chunk? First, we create a character vector called **states_list** as well as an empty data from object called **output**. Take a look at the `data.frame` function if you are curious about how it works. Next, we use a `for` loop to iterate over all the elements of **states_list**, call out function for each state in the region, and use the `dplyr::bind_rows` function to append them.  
+
+<br> 
+
+----
+
+## Grab FEMA Data
+
+For this portion of the practice activity, we will pull in data from the Federal Emergency Management Agency (FEMA) open data portal. In particular, [this dataset](https://www.fema.gov/openfema-data-page/registration-intake-and-individuals-household-program-ri-ihp-v2) contains applicant (i.e., individuals and households) data for disaster declarations since 2014 at the county, city, and zip code level. 
+
+The FEMA data are organized in a challenging way, so the example below is less substantive and more about practicing some of the techniques you read about for today. There was one major disaster declaration Florida during 2018&mdash;[Hurricane Michael](https://www.fema.gov/disaster/4399). 
+
+The API is a bit idiosyncratic (which is the par-for-the-course) and if you want to work with FEMA data in the future, you should take a closer look at how **logical operators** are formatted in HTTP queries, which is explained in [greater detail here](https://www.fema.gov/about/openfema/api). The **tl;dr** version is the URL below returns data from Florida related to the Hurricane Michael declaration: 
+
+`https://www.fema.gov/api/open/v2/RegistrationIntakeIndividualsHouseholdPrograms?$filter=state%20eq%20%27FL%27%20and%20disasterNumber%20eq%204399`
+
+<br> 
+
+The problem is that the API limits calls to 1,000 returned records, but the number of individuals and/or households registering for assistance following a disaster declaration can easily exceed that threshold `r emo::ji("sad")` The instructor has provided a .csv file with the data records associated with Hurricane Michael for the state of Florida.
+
+<br> 
+
+```{r label="Add FEMA Data to the Mix", message=FALSE, warning=FALSE}
+
+# Read in the file with Hurricane Michael data
+fema_fla <- read_csv("./data/RegistrationIntakeIndividualsHouseholdPrograms.csv")
+
+table(fema_fla$county)
+table(fema_fla$state)
+table(fema_fla$disasterNumber)
+
+# Create a tibble object to "catch" the output
+output <- tibble(GEOID = character(), NAME = character(), 
+                 TotNoHSDip = numeric(), PctNoHSDip = numeric(),
+                 TotRegis=double(), TotHAFunds=double()
+                )
+ 
+# Use the custom function to get Census ACS 2015-2019 data for all 
+# of Florida...
+county_data <- calc_nohsdip(the_state = "FL", the_geog = "county")
+
+
+for (k in seq_along(county_data[["GEOID"]])) {
+    fema_extract <- fema_fla %>%
+      filter(county == as.character(county_data[k, "NAME"]))
+    TotRegis <- sum(fema_extract[["totalValidRegistrations"]])
+    TotHAFunds <- sum(fema_extract[["haAmount"]])
+    this_record <- cbind(county_data[k, ], TotRegis, TotHAFunds)
+    output <- bind_rows(output, this_record)
+}
+
+write_csv(output, "./data/output_from_Add_FEMA_Data_to_the_Mix_chunk.csv")
+
+```
+<br> 
+
+The above code chunk processes **county_data** tibble from our custom function, extracts corresponding records from the FEMA tibble, sums the total number of valid registrations for housing assistance and the total amount awarded for housing assistance in dollars, and combines the results. This is a relatively simple example, but `for` loops, the `apply` family of functions, and familiarity with basic iteration techniques will take you far on your R journey. 
+
+<br>
+
+### **Your Turn** 
+
+<br>
+
+Insert code into the above code chunk (or insert a completely new code chunk) that creates one or more *ggplot2* graphics that explore the relationship between educational attainment and either total registrations for housing assistance or total amount awarded for housing assistance in the 12 Florida counties that received housing assistance funds following Hurricane Michael. **Hint:** if you use the percent with less than a high school diploma variable, you may need to scale the other variable (e.g., in a scatter plot). 
+
+**Pushing Farther:** if you finished the previous **Your Turn** section, consider using English proficiency as a potential predictor of post-disaster housing assistance registrations and payments at the county level in Florida.
+
+<br> 
+
+----
+
+<br>
+
+<center> You have reached the end! `r emo::ji("happy")`</center>
+
+<br> 
+
