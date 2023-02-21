@@ -165,6 +165,13 @@ We can call (i.e., execute) the function we just created by supplying the requir
 
 Note that the code chunk above makes use of the `apply` function, which is one of the first-generation iteration tools available in base R. Take a look at the [documentation page](http://127.0.0.1:39742/help/library/base/html/apply.html) for `apply` and make sure you understand its usage and arguments, then proceed.
 
+<br> 
+
+> <span style="color:dodgerblue"> A shark can swim faster than me, but I can run faster than a shark. </span>
+> 
+> <span style="color:forestgreen"> So in a triathlon, it would all come down to who is the better cyclist. </span>
+`r emo::ji("laughing")`
+
 
 ### **Your Turn** 
 
@@ -259,6 +266,14 @@ for (k in seq_along(county_data[["GEOID"]])) {
 write_csv(output, "./data/output_from_Add_FEMA_Data_to_the_Mix_chunk.csv")
 
 ```
+
+<br> 
+
+> <span style="color:dodgerblue"> I'm not a fan of elevator music. </span>
+> 
+> <span style="color:forestgreen"> It's bad on so many levels. </span>
+`r emo::ji("laughing")`
+
 <br> 
 
 The above code chunk processes **county_data** tibble from our custom function, extracts corresponding records from the FEMA tibble, sums the total number of valid registrations for housing assistance and the total amount awarded for housing assistance in dollars, and combines the results. This is a relatively simple example, but `for` loops, the `apply` family of functions, and familiarity with basic iteration techniques will take you far on your R journey. 
