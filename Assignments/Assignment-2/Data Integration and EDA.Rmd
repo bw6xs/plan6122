@@ -299,7 +299,7 @@ stats::cor(water_testing[ , c(3,4, 10:15)], use = "complete.obs")
 
 DataExplorer::plot_histogram(water_testing[ , c(3,4, 10:15)])
 
-DataExplorer::plot_correlation(na.omit(water_testing[ , c(3,4, 10:15)]))
+DataExplorer::plot_correlation(water_testing[ , c(3,4, 10:15)])
 
 
 wq_cor <- water_testing %>%
@@ -351,9 +351,9 @@ water_testing %>%
 ggplot(aes(x = `Manual - pH`, y = `Flush-Cu`, shape = aquifer_copper_pipe, fill = aquifer_copper_pipe)) + 
   geom_point(size = 4, inherit.aes = TRUE, alpha = 0.5) +
   scale_shape_manual(name = "Risk Factors", values = c(21, 24, 22, 25), 
-                     labels = c("No Risk Factors", "Aquifer Risk Factor", "Pipes Risk Factor", "Both Risk Factors")) +
+                     labels = c("Aquifer Risk Factor", "Both Risk Factors", "No Risk Factors", "Pipes Risk Factor")) +
   scale_fill_manual(name = "Risk Factors", values = c("dodgerblue", "green4", "firebrick", "orange"),
-                     labels = c("No Risk Factors", "Aquifer Risk Factor", "Pipes Risk Factor", "Both Risk Factors")) +
+                     labels = c("Aquifer Risk Factor", "Both Risk Factors", "No Risk Factors", "Pipes Risk Factor")) +
   theme_minimal() +
   labs(title = "", x = "pH", y = "Copper (mg/L)") 
 
@@ -370,9 +370,9 @@ water_testing %>%
 ggplot(aes(x = `Manual - pH`, y = `Flush-Cu`, shape = aquifer_copper_pipe, fill = aquifer_copper_pipe)) + 
   geom_point(size = 4, inherit.aes = TRUE, alpha = 0.5) +
   scale_shape_manual(name = "Risk Factors", values = c(21, 24, 22, 25), 
-                     labels = c("No Risk Factors", "Aquifer Risk Factor", "Pipes Risk Factor", "Both Risk Factors")) +
+                     labels = c("Aquifer Risk Factor", "Both Risk Factors", "No Risk Factors", "Pipes Risk Factor")) +
   scale_fill_manual(name = "Risk Factors", values = c("dodgerblue", "green4", "firebrick", "orange"),
-                     labels = c("No Risk Factors", "Aquifer Risk Factor", "Pipes Risk Factor", "Both Risk Factors")) +
+                     labels = c("Aquifer Risk Factor", "Both Risk Factors", "No Risk Factors", "Pipes Risk Factor")) +
   geom_hline(yintercept = 1.2, color = "purple", linetype = 2) +
   theme_minimal() +
   labs(title = "", x = "pH", y = "Copper (mg/L)", caption = "Regulatory limit indicated with purple dotted line.") 
@@ -409,9 +409,9 @@ ggplot(aes(x = `Manual - pH`, y = `Flush-Cu`, fill = aquifer_copper_exceed, shap
   geom_point(size = 4, alpha = 0.7) +
   theme_minimal() +
   scale_shape_manual(name = "Association", values = c(21, 24, 22, 25), 
-                     labels = c("No Sandstone Or Contamination", "Sandstone Without Contamination", "Contamination Without Sandstone", "Co-occurrence")) +
+                     labels = c("Co-occurrence", "Contamination Without Sandstone", "No Sandstone Or Contamination", "Sandstone Without Contamination")) +
   scale_fill_manual(name = "Association", values = c("yellow", "violet", "cyan", "salmon"),
-                     labels = c("No Sandstone Or Contamination", "Sandstone Without Contamination", "Contamination Without Sandstone", "Co-occurrence")) +
+                     labels = c("Co-occurrence", "Contamination Without Sandstone", "No Sandstone Or Contamination", "Sandstone Without Contamination")) +
   labs(title = "", x = "pH", y = "Copper (mg/L)")
 
 
@@ -419,6 +419,9 @@ ggplot(aes(x = `Manual - pH`, y = `Flush-Cu`, fill = aquifer_copper_exceed, shap
 
 <br> 
 
+Note that above, we alphabetize the list of labels in the `scale_...` function components so that they appear correctly in the legend. 
+
+<br>
 
 ### Exercise 2 
 <br>
@@ -435,7 +438,8 @@ Take a few minutes to review the scatterplot that was just created above, then p
    + Using this constrained sample (N = 35), create one or more graphics that bring the depth of the well into the analysis.
    + **Hint:** which parameter controls the transparency level of points in a scatterplot?
 3. Which variables (see code chunk "Correlation-Matrix" above) are mostly highly correlated with copper and lead levels? 
-   + Does your answer change if you look at the constrained sample with well depth information (N = 35) rather than the full dataset (N = 109)? 
+   + Does your answer change if you look at the constrained sample with well depth information (N = 35) rather than the full dataset (N = 109)?
+   + Why or why not?
    
 <br>
 
