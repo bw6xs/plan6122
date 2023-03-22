@@ -1,0 +1,248 @@
+---
+title: "Getting Our Feet Wet With The plotly Package"
+date: "Last Updated `r Sys.Date()`"
+fontsize: 16pt
+output:
+  html_document:
+    theme: united
+    df_print: paged
+---
+ <br> 
+ 
+This is the first of two Required Practice activities for today and this one that focuses on introducing the *plotly* package. In my opinion, the *plotly* package is most useful for generating charts (e.g., scatterplots) for inclusion in a dashboard or webpage, but you can also use it generate maps too. It is just waaaaaay easier to produce interactive maps with the *tmap* package `r emo::ji("wink")`
+
+<br> 
+ 
+```{r label="Load R Packages", include= FALSE}
+
+options(repos=c(CRAN="https://mirrors.nics.utk.edu/cran/")) 
+# install.packages("devtools")
+# install.packages("plotly")
+
+library(tidyverse)
+library(sf)
+library(jsonlite)
+library(lubridate)
+library(ggpubr)
+library(viridis)
+library(scales)
+# devtools::install_github("hadley/emo")
+library(emo)
+library(plotly)
+
+```
+
+There is often value in working with a familiar dataset in times like this. You have a shapefile of (redacted) flood insurance claims paid in the state of Virginia compiled by the Federal Emergency Management Administration included in the .zip file. You can read more about the [source of these data here](https://www.fema.gov/openfema-data-page/fima-nfip-redacted-claims-v1) if you like but we saw this dataset last week as part of the exam review. 
+
+<br>
+
+Below, we read in the shapefile from hard disk using the *sf::st_read* function...
+
+<br> 
+
+```{r label="Read Shapefile of NFIP Claims", message=FALSE, warning=FALSE}
+
+va_nfip_claims_0 <- st_read("./NFIP_Claims_VA.shp")
+
+```
+
+<br> 
+
+Now let's practice generating some common graphics using *plotly*. The primary advantage here is that <span style="color:purple">**these graphics are interactive by default**</span> because this R package allows us to leverage functionality from the **plotly JavaScript library** commonly [used for web development](https://plotly.com/javascript).   
+
+<br>
+
+```{r label="Create Histogram", message=FALSE, warning=FALSE}
+
+
+va_nfip_claims_0  %>%
+  plot_ly() %>% 
+  add_histogram(x = ~yrOfLss)
+
+
+va_nfip_claims_0  %>%
+  filter(yrOfLss >= 2003) %>%
+  plot_ly() %>% 
+  add_histogram(x = ~yrOfLss, marker = list(color = "orange", line = list(color = "royalblue", width = 2))) %>%
+  layout(title = "Flood Insurance Claims in VA", plot_bgcolor = "grey20", 
+         xaxis = list(title = "Year"),
+         yaxis = list(title = "Number"))
+  
+
+```
+
+<br> 
+
+Note that we can chain *plotly* code together with *dplyr* functions for data wrangling in the same way that we saw with *ggplot2* graphics `r emo::ji("flex")`. In the above chunk, the **plot_ly** function initializes a *plotly* object and the **add_histogram** function builds a histogram based on the number of flood insurance claims filed in Virginia by year. The second example just shows how to tailor the resulting histogram chart. Note that the marker and line arguments take a list with multiple parameters and that both resulting graphics are dynamic in that we get additional information when we mouse over (hover) the bars. 
+
+<br> 
+
+```{r label="Generate Boxplot and Scatterplot", message=FALSE, warning=FALSE}
+
+
+# Boxplot...
+va_nfip_claims_0 %>%
+  filter(occpncT < 4) %>%
+plot_ly() %>%
+  add_boxplot(x = ~occpncT, y = ~amnPOBC, 
+              text = ~paste(occpncT, floodZn),
+              hoverinfo = "text") %>%
+  layout(title = "Flood Insurance Claims Paid for Building Costs", plot_bgcolor = "grey20", 
+         xaxis = list(title = " ", 
+                      ticktext = list("Single Family Res", "2 to 4 Unit Res", "More Than 4 Unit Res"), 
+                      tickvals = list(1, 2, 3)), 
+         yaxis = list(title = "Amount Paid ($)"))
+
+
+# Scatterplot...
+va_nfip_claims_0  %>%
+  drop_na(amnPOBC) %>%
+  filter(ttlBlIC <= 250000) %>%
+  plot_ly() %>%
+  add_trace(y = ~amnPOBC, x = ~ttlBlIC, marker = list(color = "red"),
+            text = ~paste("My policy was for", scales::dollar(ttlBlIC), "but I received ", scales::dollar(amnPOBC), "after the storm." ),
+            hoverinfo = "text") %>%
+  layout(title = "Flood Insurance Claims Paid for Building Costs", plot_bgcolor = "grey20", 
+         xaxis = list(title = "Total Insurance Amount"), 
+         yaxis = list(title = "Amount Paid Bldg Claim"))
+  
+
+```
+
+<br> 
+
+If we want to access cool basemaps&mdash;and **of course** we do&mdash;it is best to sign up for MapBox token by [visiting this page](https://account.mapbox.com/auth/signup).
+
+<br>
+
+
+<br>
+<center> ![](img/mapbox.png){width=750px}</center>  
+<br>
+
+
+`Sys.setenv('MAPBOX_TOKEN' = 'PASTE_YOUR_STRING_HERE')`
+
+Copy the line of code shown above into the **Console**, insert your token from the MapBox website, then press **Enter** to save it into memory **BEFORE** running the code chunk below. 
+
+<br> 
+
+> <span style="color:dodgerblue"> What do you call a mouse that swears? </span>
+> 
+> <span style="color:forestgreen"> A cursor. </span>
+`r emo::ji("laughing")`
+
+
+```{r label="Generate Map with Cool Basemaps", message=FALSE, warning=FALSE}
+
+
+# Dynamic map with basemap included...
+va_nfip_claims_0 %>%
+  drop_na(ttlBlIC, amnPOBC) %>%
+plot_mapbox(color = ~amnPOBC, 
+            text = ~paste("My policy was for", scales::dollar(ttlBlIC), "but I received ", scales::dollar(amnPOBC), "after the storm." ),
+            hoverinfo = "text") %>%
+  layout(mapbox = list(style = 'carto-positron', zoom = 10, center = list(lat = ~median(st_coordinates(va_nfip_claims_0)[, 2]), 
+                                                                             lon = ~median(st_coordinates(va_nfip_claims_0)[, 1]))),
+            title = " ") %>% 
+  colorbar(title = "Amount Paid ($) <br> Building Claim")
+
+
+```
+
+
+<br> 
+
+Now let's demonstrate how to coerce a *ggplot* map to a *plotly* map... `r emo::ji("wink")` 
+
+<br>
+
+```{r label="Convert ggplot2 to plotly", message=FALSE, warning=FALSE}
+
+# Apply a map projection... maybe UTM Zone 17 North...
+va_nfip_claims_sf <- st_transform(va_nfip_claims_0, crs = "EPSG:32617")
+
+# Filter out records where year of loss is 2003
+va_nfip_claims_2003_sf <- va_nfip_claims_sf %>%
+  filter(yrOfLss == 2003)
+
+
+# Get a layer with boundaries for context...
+bound_0 <- st_read("https://opendata.arcgis.com/datasets/e3c8822a4adc4fc1a542a233893a46d4_0.geojson")
+
+# Apply a map projection... maybe UTM Zone 17 North... to be consistent!
+bound <- st_transform(bound_0, crs = "EPSG:32617")
+
+# Map claims by structure type AND payment amount, KNOWING that the vast
+# majority of structure were single-family residential...
+claims_2003 <- ggplot() + 
+  geom_sf(data = va_nfip_claims_2003_sf, aes(color = as_factor(occpncT), size = amnPOBC), shape = 19, alpha = 0.4) +
+  geom_sf(data = bound, color = "dodgerblue", fill = NA) +
+  scale_color_viridis(discrete = TRUE, name = "Structure Type", labels = c("Single Family Res", 
+                                                                           "2 to 4 Unit Res", 
+                                                                           "More Than 4 Unit Res", 
+                                                                           "Non-residential")) +
+  scale_size_continuous(name = "Building Claim Paid($)") +
+  coord_sf(crs = st_crs(4326)) +
+  theme_void() + 
+  theme(legend.position="bottom") 
+
+ggplotly(claims_2003)
+
+
+```
+
+<br> 
+
+We don't have that much control over the details of the plot if we go this route. Let's create a map from scratch instead... `r emo::ji("prank")` 
+
+<br>
+
+```{r label="Sum and Plot Choropleth", message=FALSE, warning=FALSE}
+
+# Group and count by county (locality)
+by_county <- va_nfip_claims_2003_sf %>%
+  drop_na(amnPOBC) %>%
+  group_by(contyCd) %>%
+  count()
+
+
+# Join to existing sf object for plotting...
+by_county_joined <- st_join(bound, by_county, by = c("GEOID" = "contyCd"), left = TRUE)
+
+# Generate the map...
+plot_ly(data = bound, stroke = I("grey"), showlegend = FALSE) %>%
+    add_sf(data = by_county_joined, 
+         split = ~NAME,
+         color = ~n,
+         colors = "Reds",
+         stroke = I("grey"),
+         text = ~paste0(NAME, "\n", n),
+         hoveron = "fills",
+         hoverinfo = "text", 
+         inherit = FALSE) %>%
+    layout(showlegend = FALSE) %>%
+  colorbar(title = "Number of \n Claims")
+
+
+
+```
+
+### **Your Turn** 
+<br>
+
+Insert a new code chunk that generates one or two graphics of your choice using *plotly*. This is can be with the dataset we have here **OR** another dataset of your choosing. 
+
+
+<br> 
+
+
+----
+
+
+<br> 
+
+<center> You have reached the end! `r emo::ji("tongue")` </center>
+
+<br> 
+

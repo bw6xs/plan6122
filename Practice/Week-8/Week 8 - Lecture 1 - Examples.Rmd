@@ -1,0 +1,386 @@
+---
+title: "Review of Geospatial Data Visualization"
+date: "Last Updated `r Sys.Date()`"
+fontsize: 16pt
+output:
+  html_document:
+    theme: united
+    df_print: paged
+---
+ <br> 
+ 
+The midterm exam is scheduled for our next class session. This portion of today's class is designed to review some of the more important aspects of geospatial data visualization  that we have covered to date.  
+
+<br> 
+ 
+```{r label="Load R Packages", include= FALSE}
+
+options(repos=c(CRAN="https://mirrors.nics.utk.edu/cran/")) 
+# install.packages("devtools")
+# install.packages("sf")
+
+library(tidyverse)
+library(sf)
+library(jsonlite)
+library(lubridate)
+library(ggpubr)
+library(viridis)
+library(scales)
+# devtools::install_github("hadley/emo")
+library(emo)
+library(janitor)
+
+```
+
+
+To this end, you have a shapefile of (redacted) flood insurance claims paid in the state of Virginia compiled by the Federal Emergency Management Administration included in the .zip file. You can read more about the [source of these data here](https://www.fema.gov/openfema-data-page/fima-nfip-redacted-claims-v1) if you like. 
+
+<br>
+
+Below, we read in the shapefile from hard disk using the *sf::st_read* function...
+
+<br> 
+
+```{r label="Read Shapefile of NFIP Claims", message=FALSE, warning=FALSE}
+
+va_nfip_claims_0 <- st_read("NFIP_Claims_VA.shp")
+
+```
+
+<br> 
+
+Now let's practice some of the technical operations that are likely to appear on the midterm exam. 
+
+Hurricane Isabel hit Virginia in September of 2003 and it remains the [costliest disaster in the state's history](https://en.wikipedia.org/wiki/Effects_of_Hurricane_Isabel_in_Virginia#:~:text=The%20effects%20of%20Hurricane%20Isabel,in%20the%20tropical%20Atlantic%20Ocean.). Let's explore flood insurance claims from 2003 just to get a little more practice under our belts.
+
+<br>
+
+```{r label="Filter and Plot Shapefile of NFIP Claims", message=FALSE, warning=FALSE}
+
+# Check the coordinate system of the data layer we just imported... 
+st_crs(va_nfip_claims_0)
+
+
+# Apply a map projection... maybe UTM Zone 17 North...
+va_nfip_claims <- st_transform(va_nfip_claims_0, crs = "EPSG:32617")
+
+# Check the coordinate system again...
+st_crs(va_nfip_claims)
+
+# Filter out records where year of loss is 2003
+va_nfip_claims_2003 <- va_nfip_claims %>%
+  filter(yrOfLss == 2003)
+
+
+# Get a layer with boundaries for context...
+bound_0 <- st_read("https://opendata.arcgis.com/datasets/e3c8822a4adc4fc1a542a233893a46d4_0.geojson")
+
+# Apply a map projection... maybe UTM Zone 17 North... to be consistent!
+bound <- st_transform(bound_0, crs = "EPSG:32617")
+
+
+# View the breakdown of payments by structure type...
+tabyl(va_nfip_claims_2003$occpncT)
+
+
+# Map claims by structure type AND payment amount, KNOWING that the vast
+# majority of structure were single-family residential...
+ggplot() + 
+  geom_sf(data = va_nfip_claims_2003, aes(color = as_factor(occpncT), size = amnPOBC), shape = 19, alpha = 0.4) +
+  geom_sf(data = bound, color = "dodgerblue", fill = NA) +
+  scale_color_viridis(discrete = TRUE, name = "Structure Type", labels = c("Single Family Res", 
+                                                                           "2 to 4 Unit Res", 
+                                                                           "More Than 4 Unit Res", 
+                                                                           "Non-residential")) +
+  scale_size_continuous(name = "Building Claim Paid($)") +
+  coord_sf(crs = st_crs(4326)) +
+  theme_void() + 
+  theme(legend.position="bottom") 
+
+
+```
+
+<br> 
+
+We can also bring exploratory data analysis to bear here...
+
+<br> 
+
+```{r label="Generate Boxplots and Demo Formatting", message=FALSE, warning=FALSE}
+
+# Create boxplot of building claims paid...
+ggplot() +
+  geom_boxplot(data = va_nfip_claims_2003, aes(y = amnPOBC))
+
+
+# Modify the axis labels...
+ggplot() +
+  geom_boxplot(data = va_nfip_claims_2003, aes(y = amnPOBC)) + 
+  labs(x = "", y = "Amount Paid ($)") + 
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+
+# Change the color...
+ggplot() +
+  geom_boxplot(data = va_nfip_claims_2003, aes(y = amnPOBC), color = "blue", fill = "dodgerblue", alpha = 0.3) + 
+  labs(x = "", y = "Amount Paid ($)") + 
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+
+# Label the median...
+ggplot() +
+  geom_boxplot(data = va_nfip_claims_2003, aes(y = amnPOBC), color = "blue", fill = "dodgerblue", alpha = 0.3) + 
+  labs(x = "", y = "Amount Paid ($)") + 
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()) +
+  annotate("text", label = median(va_nfip_claims_2003$amnPOBC, na.rm = TRUE), x = 0, y = median(va_nfip_claims_2003$amnPOBC, na.rm = TRUE), size = 4, color = "white")
+
+
+```
+
+<br> 
+
+Continue with the EDA motif...
+
+<br> 
+
+```{r label="Generate Barcharts and Demo Formatting", message=FALSE, warning=FALSE}
+
+# Summarise by structure type...
+sfr_claims <- st_drop_geometry(va_nfip_claims_2003) %>%
+  group_by(occpncT) %>%
+  summarise(MeanPayment = mean(amnPOBC, na.rm = TRUE))
+
+str(sfr_claims)
+
+
+# Create a barchart...
+sfr_claims %>%
+  drop_na(MeanPayment) %>%
+ggplot() + 
+  geom_bar(aes(x = occpncT , y = MeanPayment), stat = "identity")
+
+
+# Change the axis labels...
+sfr_claims %>%
+  drop_na(MeanPayment) %>%
+ggplot() + 
+  geom_bar(aes(x = as_factor(occpncT), y = MeanPayment), stat = "identity") + 
+  labs(x = "", y = "Amount Paid ($)") + 
+  scale_x_discrete(labels = c("Single Family Res", "2 to 4 Unit Res", "More Than 4 Unit Res"))
+
+
+# Change the fill colors...
+sfr_claims %>%
+  drop_na(MeanPayment) %>%
+ggplot() + 
+  geom_bar(aes(x = as_factor(occpncT), y = MeanPayment, fill = as_factor(occpncT)), stat = "identity") + 
+  labs(x = "", y = "Amount Paid ($)") + 
+  scale_x_discrete(labels = c("Single Family Res", "2 to 4 Unit Res", "More Than 4 Unit Res")) +
+  scale_fill_manual(name = "", values = c("lavender", "salmon", "burlywood") )
+
+
+# Suppress the legend and format the y-axis values...
+sfr_claims %>%
+  drop_na(MeanPayment) %>%
+ggplot() + 
+  geom_bar(aes(x = as_factor(occpncT), y = MeanPayment, fill = as_factor(occpncT)), 
+           stat = "identity", show.legend = FALSE) + 
+  labs(x = "", y = "Amount Paid ($)") + 
+  scale_x_discrete(labels = c("Single Family Res", "2 to 4 Unit Res", "More Than 4 Unit Res")) +
+  scale_fill_manual(name = "", values = c("lavender", "salmon", "burlywood")) +
+  scale_y_continuous(labels = scales::dollar_format())
+
+
+```
+
+<br> 
+
+You guessed it... more EDA...
+
+<br> 
+
+> <span style="color:dodgerblue"> What type of doctor is Dr. Pepper? </span>
+> 
+> <span style="color:forestgreen"> She's a fizzician." </span>
+`r emo::ji("laughing")`
+
+<br>
+
+
+```{r label="Generate Scatterplots and Demo Formatting", message=FALSE, warning=FALSE}
+
+# Calculate mean payment amount by structure type 
+sfr_claims <- st_drop_geometry(va_nfip_claims_2003) %>%
+  group_by(occpncT) %>%
+  summarise(MeanPayment = mean(amnPOBC, na.rm = TRUE))
+
+str(sfr_claims)
+
+
+# Plot total insurance coverage amount by amount paid for a given claim...
+ggplot() +
+  geom_point(data = va_nfip_claims_2003, aes(y = amnPOBC, x = ttlBlIC), color = "red") +
+  labs(x = "Total Insurance Amount", y = "Amount Paid Bldg Claim") +
+  scale_x_continuous(labels = scales::dollar_format()) + 
+  scale_y_continuous(labels = scales::dollar_format())
+
+
+# What if we log-transform the data to make the pattern easier to see? 
+ggplot() +
+  geom_point(data = va_nfip_claims_2003, aes(y = amnPOBC, x = ttlBlIC), color = "red") + 
+  scale_x_log10() + scale_y_log10()
+
+# What if we log-transform the data the hard way? 
+va_nfip_claims_2003 %>% 
+  filter(amnPOBC > 0.0) %>%
+  ggplot() +
+  geom_point(aes(y = log(amnPOBC), x = log(ttlBlIC)), color = "red") 
+  
+# The maximum insurance policy amount at this time was $250,000...
+summary(va_nfip_claims_2003$ttlBlIC)
+
+
+# Let's demonstrate who we might facet these scatterplots...
+facet_labels_for_plot <- c("1" = "Single Family Res", 
+                           "2" = "2 to 4 Unit Res",
+                           "3" = "More Than 4 Unit Res", 
+                           "4" = "Non-residential")
+
+va_nfip_claims_2003 %>% 
+  filter(ttlBlIC < 250000) %>%
+  ggplot() +
+  geom_point(aes(y = amnPOBC, x = ttlBlIC), color = "hotpink") +
+  labs(x = "Total Insurance Amount", y = "Amount Paid Bldg Claim") +
+  scale_x_continuous(labels = scales::dollar_format(), breaks = c(seq(0, 250000, 75000))) + 
+  scale_y_continuous(labels = scales::dollar_format()) +
+  facet_grid(. ~ occpncT, labeller = labeller(occpncT = facet_labels_for_plot))
+
+# Note that we have to use the labeller function here, which could be a hassle AND that
+# we increase the spacing between x-axis labels for legibility using the breaks argument...
+
+
+```
+
+
+<br> 
+
+Now let's make a map or two... `r emo::ji("map")` `r emo::ji("flex")`
+
+<br>
+
+```{r label="Plot Geospatial Data", message=FALSE, warning=FALSE}
+
+# Note that FEMA "fuzzies" the latitude and longitude of these claims a bit...
+
+
+# Here we plot flood insurance claims from Mathews County during 2003 by 
+# chaining the ggplot code to a dplyr::filter operation...
+va_nfip_claims_2003 %>%
+  filter(contyCd == 51115) %>%
+ggplot() + 
+  geom_sf(aes(color = as_factor(occpncT), size = amnPOBC), shape = 19, alpha = 0.4) +
+  geom_sf(data = bound[bound$GEOID == "51115", ], color = "dodgerblue", fill = NA) +
+  scale_color_viridis(discrete = TRUE, name = "Structure Type", labels = c("Single Family Res", 
+                                                                           "2 to 4 Unit Res", 
+                                                                           "More Than 4 Unit Res", 
+                                                                           "Non-residential")) +
+  scale_size_continuous(name = "Building Claim Paid($)") +
+  coord_sf(crs = st_crs(4326)) +
+  theme_void() + 
+  theme(legend.position="bottom") 
+
+
+# We can use a similar approach to create a barchart showing claims paid in Mathews County versus
+# Norfolk County since 2003... apologies for the color selections...
+va_nfip_claims %>%
+  filter(contyCd %in% c(51115, 51710),
+         yrOfLss > 2002) %>%
+  group_by(contyCd, yrOfLss) %>%
+  summarise(TotalPaid = sum(amnPOBC, na.rm = TRUE), TotalClaims = n()) %>%
+ggplot(aes(x = as_factor(yrOfLss), y = TotalPaid, fill = contyCd)) + 
+    geom_bar(position="dodge", stat="identity") +
+    scale_fill_viridis(discrete = TRUE, name = "County",
+                       labels = c("Mathews", "Norfolk")) +
+    scale_y_continuous(labels = scales::dollar_format()) +
+    labs(x = "", y = "Total Amount Paid") 
+   
+
+
+# We can do the same with total flood insurance claims submitted from these two counties...
+va_nfip_claims %>%
+  filter(contyCd %in% c(51115, 51710),
+         yrOfLss > 2002) %>%
+  group_by(contyCd, yrOfLss) %>%
+  summarise(TotalPaid = sum(amnPOBC, na.rm = TRUE), TotalClaims = n()) %>%
+ggplot(aes(x = as_factor(yrOfLss), y = TotalClaims, fill = contyCd)) + 
+    geom_bar(position="dodge", stat="identity") +
+    scale_fill_viridis(discrete = TRUE, name = "County",
+                       labels = c("Mathews", "Norfolk")) +
+    labs(x = "", y = "Total Claims") 
+
+
+```
+
+<br> 
+
+Maybe flooding issues are waning in these two counties if we use this data as a point of departure? `r emo::ji("wink")` 
+
+<br> 
+
+As shown [here](https://www.mathewscountyva.gov/171/Flood-Zones), zones A, AE, and VE are considered part of the 100-year floodplain in Mathews County (and elsewhere, but you get my point). The other shapefile shows FEMA flood risk for Mathews County and we can overlay it with the ("fuzzied" for privacy) location of flood insurance claims from there. 
+
+<br>
+
+```{r label="Add Flood Zones", message=FALSE, warning=FALSE}
+
+# Read in the FEMA shapefile and project it to match our other layers...
+fema_0 <- st_read("FEMA_Flood_Map.shp")
+fema <- st_transform(fema_0, crs = "EPSG:32617")
+
+# Use dplyr to only keep zones that are considered in the 100 year floodplain...
+fema_100_yr <- fema %>%
+  filter(FLD_ZONE %in% c("A", "AE", "VE"))
+
+
+# Generate the map....
+va_nfip_claims %>%
+  filter(contyCd == 51115) %>%
+ggplot() + 
+  geom_sf(aes(color = as_factor(occpncT), size = amnPOBC), shape = 19, alpha = 0.4) +
+  geom_sf(data = bound[bound$GEOID == "51115", ], color = "dodgerblue", fill = NA) +
+  geom_sf(data = fema_100_yr, fill = "blue", color = NA, alpha = 0.2) +
+  scale_color_viridis(discrete = TRUE, name = "Structure Type", labels = c("Single Family Res", 
+                                                                           "2 to 4 Unit Res", 
+                                                                           "More Than 4 Unit Res", 
+                                                                           "Non-residential")) +
+  scale_size_continuous(name = "Building Claim Paid($)") +
+  coord_sf(crs = st_crs(4326)) +
+  theme_void() + 
+  theme(legend.position="left") 
+
+
+```
+
+Recall that we use the `st_crs` function to display the coordinate system for a given *sf* object. We use the `st_transform` function to **change the coordinate system** of a given *sf* object.
+
+<br> 
+
+> <span style="color:dodgerblue"> Bro, do you want this pamphlet? </span>
+> 
+> <span style="color:forestgreen"> Yeah, Brochure." </span>
+`r emo::ji("laughing")`
+
+<br> 
+
+----
+
+
+<br> 
+
+<center> You have reached the end! </center>
+
+<br> 
+
