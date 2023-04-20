@@ -605,7 +605,7 @@ gbm_model <- train(countBurglaries ~ Abandoned_Buildings + Abandoned_Cars + Graf
                    data = chicago_training %>% st_drop_geometry() %>% drop_na(),
                    method = "gbm",
                    trControl = gbm_ctrl,
-                   tuneLength = 3)
+                   tuneLength = 3, verbose = FALSE)
 
 print(gbm_model)
 
@@ -668,7 +668,7 @@ gbm_model_revised <- train(countBurglaries ~ Abandoned_Buildings + Abandoned_Car
                    method = "gbm",
                    trControl = gbm_ctrl,
 #                   tuneLength = 3)
-                   tuneGrid = gbm_Grid)
+                   tuneGrid = gbm_Grid, verbose = FALSE)
 
 print(gbm_model_revised)
 
