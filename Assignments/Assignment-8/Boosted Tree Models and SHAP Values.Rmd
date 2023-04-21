@@ -613,13 +613,15 @@ sv_waterfall(shp, row_id = 4)
 # Plot individual SHAP values...
 sv_importance(shp, kind = 'beeswarm', show_numbers = TRUE)
 
-
+# Change the color palette from the default (i.e., viridis inferno) and use 
+# ?ggplot2::scale_color_viridis_c() to explore these options in more detail...
+sv_importance(shp, kind = 'beeswarm', show_numbers = TRUE, viridis_args = list(option = "viridis", alpha = 0.9, begin = 0.25, end = 0.9))
 
 ```
 
 <br> 
 
-The bar chart is self-explanatory and communicates which features are most influential on average&mdash;mean of all SHAP values across columns gives us feature importance. The waterfall plot shows how this plays out for a single observation (i.e., housing unit) and is read from the bottom to the top&mdash;population density exerts a small positive influence followed by transit access score. The parcel size and total assessed value of the structure add larger, positive effects while the age of the structure and its walking access score exert large negative influences on the estimated probability of demolition. Finally, the beeswarm plot shows the distribution of SHAP values in a very granular way. Here, each point on the chart is one SHAP value for an individual observation for the corresponding feature. If a majority of the points are clustered around zero, this would suggest a lower level of importance for a given feature.    
+The bar chart is self-explanatory and communicates which features are most influential on average&mdash;mean of all SHAP values across columns gives us feature importance. The waterfall plot shows how this plays out for a single observation (i.e., housing unit) and is read from the bottom to the top&mdash;population density exerts a small positive influence followed by transit access score. The parcel size and total assessed value of the structure add larger, positive effects while the age of the structure and its walking access score exert large negative influences on the estimated probability of demolition. Finally, the beeswarm plot shows the distribution of SHAP values in a very granular way. Here, each point on the chart is one SHAP value for an individual observation for the corresponding feature and the **contribution on average** to the prediction is indicated by the numbers shown on the left. If a majority of the points are clustered around zero, this would suggest a lower level of importance for a given feature. The color of the points give us an idea of what the original value of each observation was for each of the features in the model.    
 
 <br> 
 
