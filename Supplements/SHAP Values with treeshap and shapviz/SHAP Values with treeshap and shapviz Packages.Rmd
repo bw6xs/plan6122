@@ -192,7 +192,7 @@ Recall the feature in the model that represents distance to downtown in meters..
 
 <br> 
 
-<center> ![](./img/loop_distance.png){width=650px} </center>
+<center> ![](./img/loop_distance.png){width=450px} </center>
 
 <br> 
 
