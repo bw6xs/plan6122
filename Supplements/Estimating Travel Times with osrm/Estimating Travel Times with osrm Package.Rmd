@@ -1,0 +1,378 @@
+---
+title: "Estimating Travel Times Using the _osrm_ Package" 
+subtitle: "PLAN 6122 Supplement"
+author: "Bev Wilson"
+date: "Last Updated `r Sys.Date()`"
+fontsize: 16pt
+output:
+  html_document:
+    theme: cerulean
+    df_print: paged
+  pdf_document: default
+---
+
+<br> 
+
+Several students have expressed an interest in using the _osrm_ package to [calculate travel times](https://cran.r-project.org/web/packages/osrm/index.html) along a transportation network from a set of origins to a set of destinations. This document offers a brief demonstration of how you might do this. This package is a way to interact with [this web-based routing application](https://project-osrm.org) that you can also use directly from your browser. 
+
+The _osrm_ package can return travel times (i.e., durations) and travel distances (i.e., distances) between origins and destinations **along the OpenStreetMap road network** by making calls to an API. This means you **do not** need to download a road network. You should review the documentation for this package, but the main functions of interest are: 
+
+   + [osrmTable](https://search.r-project.org/CRAN/refmans/osrm/html/osrmTable.html): Build and send OSRM API queries to get travel time matrices between points.
+   + [osrmRoute](https://search.r-project.org/CRAN/refmans/osrm/html/osrmRoute.html): Build and send an OSRM API query to get the travel geometry between two points.            
+   + [osrmTrip](https://search.r-project.org/CRAN/refmans/osrm/html/osrmTrip.html): Build and send an OSRM API query to get the shortest travel geometry between multiple unordered points.
+   + [osrmNearest](https://search.r-project.org/CRAN/refmans/osrm/html/osrmNearest.html): Build and send an OSRM API query to get the nearest point on the street network. 
+   + [osrmIsochrone](https://search.r-project.org/CRAN/refmans/osrm/html/osrmIsochrone.html): This function computes areas that are reachable within a given time span from a point and returns the reachable regions as polygons. These areas of equal travel time are called isochrones.
+   + [osrmIsodistance](https://search.r-project.org/CRAN/refmans/osrm/html/osrmIsodistance.html): This function computes areas that are reachable within a given road distance from a point and returns the reachable regions as polygons. These areas of equal travel distance are called isodistances.
+
+<br> 
+
+The example presented here uses a polygon layer provided by the City of Charlottesville as part of its 2023 zoning ordinance update that shows the location and proposed future land use designation of all parcels in the city [downloaded from here](https://cvilleplanstogether.com/draft-zoning/) and provided a shapefile with this .Rmd. The other data layer is the location of all public schools in the city. 
+
+<br> 
+
+The API is free to use but it [does implement throttling](https://www.tibco.com/reference-center/what-is-api-throttling#:~:text=API%20throttling%20is%20the%20process,click%20triggers%20an%20API%20call.) which means that depending on the level of demand from users around the world, you may be able to request 1,000 responses or only 200 responses at a time. In my experience, "off hours" and nights are when you make larger calls to the API. Otherwise, the strategy is to break your data into pieces and send each of those pieces over to the API as a separate request so as to not exceed the current limit. If you are [comfortable with for loops](https://info201.github.io/control-structures.html#control-structures) you could set up a routine where your data are broken into the requisite number of pieces and sent to the API automatically while you sleep or watch a movie. This example shows how this approach would be implemented manually to make it easier to understand and follow because sometimes loops can obfuscate. 
+
+
+```{r label="Load R Packages and Import Data", include= FALSE}
+
+library(tidyverse)
+library(sf)
+library(viridis)
+library(jsonlite)
+library(ggpubr)
+# remotes::install_github("hadley/emo")
+library(emo)
+library(osrm)
+library(janitor)
+
+
+# Import the parcel polygons from the zoning ordinance shapefile...
+draft_zoning_0 <- st_read("./data/Draft_Zoning_Map,_February_3,_2023.shp")
+
+draft_zoning <- draft_zoning_0 %>%
+  st_transform("EPSG:2284")
+
+# Get the Charlottesville neighborhood boundaries from the open data portal...
+nhoods <- st_read("https://gisweb.charlottesville.org/arcgis/rest/services/basemap_world_mercator_expanded/MapServer/369/query?outFields=*&where=1%3D1&f=geojson") %>%
+  st_transform("EPSG:2284")
+
+
+# Read in the public schools layer...
+schools_0 <- st_read("./data/cville_public_schools.geojson")
+schools <- st_transform(schools_0, crs = st_crs(draft_zoning))
+
+
+```
+
+<br> 
+
+# Data Wrangling
+
+This example focuses on one neighborhood&mdash;Fifeville `r emo::ji("smile")` First, we extract the polygon we want, then we extract the parcel centroids that fall within the Fifeville neighborhood boundary. 
+
+<br>
+
+```{r label="Grab Data for Fifeville Only", warning = FALSE, message = FALSE}
+
+# Extract the Fifeville neighborhood only...
+fifeville <- nhoods[nhoods$NAME == "Fifeville", ]
+
+# Select parcels in Fifeville...
+
+fifeville_parcels_polys <- st_intersection(draft_zoning, fifeville)
+
+fifeville_parcels <- st_intersection(draft_zoning, fifeville) %>%
+  st_centroid()
+
+
+# Visualize parcel centroids by future land use designation...
+ggplot() + 
+  geom_sf(data = fifeville, color = "dodgerblue", linewidth = 1.5) + 
+  geom_sf(data = fifeville_parcels, aes(color = as_factor(FLUM_Desig))) +
+  scale_color_viridis(name = "Land Use", option = "inferno", discrete = TRUE) +
+  theme_void()
+
+
+```
+
+<br> 
+
+# Requesting the Data
+
+The code chunk below requests the time (minutes) and the distance (meters) from each origin in the parcel centroids layer to each destination in the schools layer along the OpenStreetMap road network for Charlottesville. Take a look at the `osrmTable` function arguments and note that **osrm.profile** determines whether walk times, driving times, etc. are returned. In this example, we request walking times in both minutes and meters.
+
+<br>
+
+```{r label="Get First 300 of 1134 Records", warning = FALSE, message = FALSE}
+
+# Create an object to hold the processed data...
+
+output_300 <- tibble(UniqueID=character(), NearSchoolDist=character(), NearSchoolMins=character(), 
+                     DistMeters=double(), TimeMins=double())
+
+# Make the API request for rows 1 through 300 of the parcel centroids layer to avoid
+# exceeding API throttling limits...
+foot_matrix_300 <- osrmTable(src = fifeville_parcels[1:300, ], dst = schools,
+                         osrm.profile = "foot", measure = c("duration", "distance"))
+
+
+# Because the previous function returns a 300 x 9 object in a nested list, we need to 
+# pull out the information we actually need... the durations and distances are stored 
+# separately in the nested list, but we process both in the loop below...
+
+for (j in (seq(1:dim(foot_matrix_300$durations)[1]))) {
+  
+  foot_matrix_distance_final <- suppressMessages(
+    bind_cols(fifeville_parcels$ParcelNumb[1:300], foot_matrix_300$distances)
+  )
+  foot_matrix_durations_final <- suppressMessages(
+    bind_cols(fifeville_parcels$ParcelNumb[1:300], foot_matrix_300$durations)
+  )
+  
+  colnames(foot_matrix_distance_final) <- c("KeyField", str_replace(as.vector(schools$name), "-", ""))
+  rownames(foot_matrix_distance_final) <- NULL
+  colnames(foot_matrix_durations_final) <- c("KeyField", str_replace(as.vector(schools$name), "-", ""))
+  rownames(foot_matrix_durations_final ) <- NULL
+  
+  parcel_id <- foot_matrix_distance_final$KeyField[j]
+  nearest_school_distance <- names(foot_matrix_distance_final[j,])[apply(foot_matrix_distance_final[j,], MARGIN = 1, FUN = which.min)]
+  nearest_school_time <- names(foot_matrix_durations_final[j,])[apply(foot_matrix_durations_final[j,], MARGIN = 1, FUN = which.min)]
+  dist_meters <- foot_matrix_distance_final[j,][apply(foot_matrix_distance_final[j,], MARGIN = 1,  FUN = which.min)][[1]]
+  time_mins <- foot_matrix_durations_final[j,][apply(foot_matrix_durations_final[j,], MARGIN = 1,  FUN = which.min)][[1]]
+  this_parcel <- suppressMessages(
+    bind_cols(parcel_id, nearest_school_distance[1], nearest_school_time[1], dist_meters[1], time_mins[1])
+  )
+  
+  colnames(this_parcel) <- c("UniqueID", "NearSchoolDist",  "NearSchoolMins", "DistMeters", "TimeMins")
+  rownames(this_parcel)  <- NULL
+  output_300 <- rbind(output_300, this_parcel)
+  
+  
+}
+
+# We now have the information we want for the first 300 parcel centroids...
+str(output_300)
+
+
+```
+
+<br> 
+
+Next, we do it again _**making sure that we request rows 301 through 600**_ to avoid duplicating the previous code chunk. Eventually, we will append all of these outputs once all 1,134 parcels in Fifeville have been processed. 
+
+<br> 
+
+> <span style="color:dodgerblue"> I've started investing in stocks. Beef, Chicken, and Vegetable. </span>
+> 
+> <span style="color:forestgreen"> One day I hope to be a bouillionaire. </span>
+`r emo::ji("laughing")`
+
+<br> 
+
+
+```{r label="Get Records 301 to 600", warning = FALSE, message = FALSE}
+
+# Create an object to hold the processed data...
+output_600 <- tibble(UniqueID=character(), NearSchoolDist=character(), NearSchoolMins=character(), 
+                     DistMeters=double(), TimeMins=double())
+
+foot_matrix_600 <- osrmTable(src = fifeville_parcels[301:600, ], dst = schools,
+                         osrm.profile = "foot", measure = c("duration", "distance"))
+
+
+for (j in (seq(1:dim(foot_matrix_600$durations)[1]))) {
+  
+  foot_matrix_distance_final <- suppressMessages(
+    bind_cols(fifeville_parcels$ParcelNumb[301:600], foot_matrix_600$distances)
+  )
+  foot_matrix_durations_final <- suppressMessages(
+    bind_cols(fifeville_parcels$ParcelNumb[301:600], foot_matrix_600$durations)
+  )
+  
+  colnames(foot_matrix_distance_final) <- c("KeyField", str_replace(as.vector(schools$name), "-", ""))
+  rownames(foot_matrix_distance_final) <- NULL
+  colnames(foot_matrix_durations_final) <- c("KeyField", str_replace(as.vector(schools$name), "-", ""))
+  rownames(foot_matrix_durations_final ) <- NULL
+  
+  parcel_id <- foot_matrix_distance_final$KeyField[j]
+  nearest_school_distance <- names(foot_matrix_distance_final[j,])[apply(foot_matrix_distance_final[j,], MARGIN = 1, FUN = which.min)]
+  nearest_school_time <- names(foot_matrix_durations_final[j,])[apply(foot_matrix_durations_final[j,], MARGIN = 1, FUN = which.min)]
+  dist_meters <- foot_matrix_distance_final[j,][apply(foot_matrix_distance_final[j,], MARGIN = 1,  FUN = which.min)][[1]]
+  time_mins <- foot_matrix_durations_final[j,][apply(foot_matrix_durations_final[j,], MARGIN = 1,  FUN = which.min)][[1]]
+  this_parcel <- suppressMessages(
+    bind_cols(parcel_id, nearest_school_distance[1], nearest_school_time[1], dist_meters[1], time_mins[1])
+  )
+  
+  colnames(this_parcel) <- c("UniqueID", "NearSchoolDist",  "NearSchoolMins", "DistMeters", "TimeMins")
+  rownames(this_parcel)  <- NULL
+  output_600 <- rbind(output_600, this_parcel)
+  
+  
+}
+
+# We now have the information we want for the NEXT 300 parcel centroids...
+str(output_600)
+
+
+```
+
+<br> 
+
+Now we need to run a modified version of the preceding code but _**making sure that we request rows 601 through 900**_ to avoid duplicating the previous chunk.
+
+<br>
+
+```{r label="Get Records 601 to 900", warning = FALSE, message = FALSE}
+
+# Create an object to hold the processed data...
+output_900 <- tibble(UniqueID=character(), NearSchoolDist=character(), NearSchoolMins=character(), 
+                     DistMeters=double(), TimeMins=double())
+
+foot_matrix_900 <- osrmTable(src = fifeville_parcels[601:900, ], dst = schools,
+                         osrm.profile = "foot", measure = c("duration", "distance"))
+
+
+for (j in (seq(1:dim(foot_matrix_900$durations)[1]))) {
+  
+  foot_matrix_distance_final <- suppressMessages(
+    bind_cols(fifeville_parcels$ParcelNumb[601:900], foot_matrix_900$distances)
+  )
+  foot_matrix_durations_final <- suppressMessages(
+    bind_cols(fifeville_parcels$ParcelNumb[601:900], foot_matrix_900$durations)
+  )
+  
+  colnames(foot_matrix_distance_final) <- c("KeyField", str_replace(as.vector(schools$name), "-", ""))
+  rownames(foot_matrix_distance_final) <- NULL
+  colnames(foot_matrix_durations_final) <- c("KeyField", str_replace(as.vector(schools$name), "-", ""))
+  rownames(foot_matrix_durations_final ) <- NULL
+  
+  parcel_id <- foot_matrix_distance_final$KeyField[j]
+  nearest_school_distance <- names(foot_matrix_distance_final[j,])[apply(foot_matrix_distance_final[j,], MARGIN = 1, FUN = which.min)]
+  nearest_school_time <- names(foot_matrix_durations_final[j,])[apply(foot_matrix_durations_final[j,], MARGIN = 1, FUN = which.min)]
+  dist_meters <- foot_matrix_distance_final[j,][apply(foot_matrix_distance_final[j,], MARGIN = 1,  FUN = which.min)][[1]]
+  time_mins <- foot_matrix_durations_final[j,][apply(foot_matrix_durations_final[j,], MARGIN = 1,  FUN = which.min)][[1]]
+  this_parcel <- suppressMessages(
+    bind_cols(parcel_id, nearest_school_distance[1], nearest_school_time[1], dist_meters[1], time_mins[1])
+  )
+  
+  colnames(this_parcel) <- c("UniqueID", "NearSchoolDist",  "NearSchoolMins", "DistMeters", "TimeMins")
+  rownames(this_parcel)  <- NULL
+  output_900 <- rbind(output_900, this_parcel)
+  
+  
+}
+
+
+# We now have the information we want for the NEXT 300 parcel centroids...
+str(output_900)
+
+
+```
+
+<br> 
+
+Finally, we need to run a modified version of the preceding code _**one more time**_ but _**making sure that we request rows 901 through 1134**_ to avoid duplicating the previous chunk.
+
+<br>
+
+```{r label="Get Records 901 to 1134", warning = FALSE, message = FALSE}
+
+# Create an object to hold the processed data...
+
+output_1134 <- tibble(UniqueID=character(), NearSchoolDist=character(), NearSchoolMins=character(), 
+                     DistMeters=double(), TimeMins=double())
+
+foot_matrix_1134 <- osrmTable(src = fifeville_parcels[901:1134, ], dst = schools,
+                         osrm.profile = "foot", measure = c("duration", "distance"))
+
+
+for (j in (seq(1:dim(foot_matrix_1134$durations)[1]))) {
+  
+  foot_matrix_distance_final <- suppressMessages(
+    bind_cols(fifeville_parcels$ParcelNumb[901:1134], foot_matrix_1134$distances)
+  )
+  foot_matrix_durations_final <- suppressMessages(
+    bind_cols(fifeville_parcels$ParcelNumb[901:1134], foot_matrix_1134$durations)
+  )
+  
+  colnames(foot_matrix_distance_final) <- c("KeyField", str_replace(as.vector(schools$name), "-", ""))
+  rownames(foot_matrix_distance_final) <- NULL
+  colnames(foot_matrix_durations_final) <- c("KeyField", str_replace(as.vector(schools$name), "-", ""))
+  rownames(foot_matrix_durations_final ) <- NULL
+  
+  parcel_id <- foot_matrix_distance_final$KeyField[j]
+  nearest_school_distance <- names(foot_matrix_distance_final[j,])[apply(foot_matrix_distance_final[j,], MARGIN = 1, FUN = which.min)]
+  nearest_school_time <- names(foot_matrix_durations_final[j,])[apply(foot_matrix_durations_final[j,], MARGIN = 1, FUN = which.min)]
+  dist_meters <- foot_matrix_distance_final[j,][apply(foot_matrix_distance_final[j,], MARGIN = 1,  FUN = which.min)][[1]]
+  time_mins <- foot_matrix_durations_final[j,][apply(foot_matrix_durations_final[j,], MARGIN = 1,  FUN = which.min)][[1]]
+  this_parcel <- suppressMessages(
+    bind_cols(parcel_id, nearest_school_distance[1], nearest_school_time[1], dist_meters[1], time_mins[1])
+  )
+  
+  colnames(this_parcel) <- c("UniqueID", "NearSchoolDist",  "NearSchoolMins", "DistMeters", "TimeMins")
+  rownames(this_parcel)  <- NULL
+  output_1134 <- rbind(output_1134, this_parcel)
+  
+  
+}
+
+
+# We now have the information we want for the FINAL batch of parcel centroids...
+str(output_1134)
+
+
+```
+
+<br>
+
+Now for the fun part&mdash;combining the data objects we have created and visualizing the results `r emo::ji("flex")`
+
+<br>
+
+```{r fig.height=10, fig.width=16, label = "Append All of the Data and Visualize It"}
+
+# Append the data objects created above...
+fifeville_out <- bind_rows(output_300, output_600, output_900, output_1134) %>%
+  drop_na(UniqueID)
+
+# Save it for later...
+write_csv(fifeville_out, "./output/fifeville_travel_times_and_distances_to_schools.csv")
+
+# Link data back to the polygon geometry...
+fifeville_to_plot <- inner_join(fifeville_parcels_polys, fifeville_out, by = c("ParcelNumb" = "UniqueID"))
+
+# Save this for later too...
+st_write(fifeville_to_plot, "./output/fifeville_travel_times_and_distances_to_schools.geojson")
+
+# Are there schools inside the neighborhood boundary? 
+local_schools <- st_intersection(schools, fifeville)
+
+# Map walk time to the nearest school...
+ggplot() + 
+  geom_sf(data = fifeville, color = "dodgerblue", linewidth = 1.5) + 
+  geom_sf(data = fifeville_to_plot, aes(fill = TimeMins)) +
+  geom_sf(data = st_centroid(local_schools), color = "red", pch = 19, size = 2) + 
+  scale_fill_viridis(name = "Minutes") +
+  theme_void()
+
+# For most parcels, Buford Middle is closest...
+fifeville_to_plot %>%
+  st_drop_geometry() %>%
+  tabyl(NearSchoolMins)
+
+
+```
+
+----
+
+<br>
+
+<center> You have reached the end! </center>
+<center> Celebrate! `r emo::ji("party")` </center>
+
+<br> 
+
+<center> <font size="2"> © Bev Wilson 2023 | Department of Urban + Environmental Planning | University of Virginia </font> </center>
+<br>
+
+
